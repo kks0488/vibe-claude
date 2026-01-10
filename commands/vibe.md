@@ -8,14 +8,74 @@ $ARGUMENTS
 
 ---
 
+## STEP 0: CREATE WORK DOCUMENT (MANDATORY)
+
+**BEFORE doing ANYTHING, create a work tracking document:**
+
+```markdown
+# File: .vibe/work-{timestamp}.md
+
+## Task: {User's request}
+Started: {datetime}
+
+---
+
+## Requirements
+- [ ] Requirement 1
+- [ ] Requirement 2
+- [ ] Requirement 3
+
+---
+
+## Execution Log
+
+### Phase 1: Recon
+- [ ] Analyze requirements
+- [ ] Find related code
+- [ ] Research best practices
+- [ ] Identify risks
+
+### Phase 2: Planning
+- [ ] Create implementation plan
+
+### Phase 3: Execution
+- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+
+### Phase 4: Verification
+- [ ] Run tests
+- [ ] Code review
+- [ ] Final check
+
+---
+
+## Progress Updates
+
+### [timestamp] Started
+{description}
+
+### [timestamp] {action}
+{result}
+✓ Verified: {evidence}
+```
+
+**UPDATE THIS DOCUMENT AFTER EVERY ACTION.**
+**CHECK BOXES AS YOU COMPLETE TASKS.**
+**NEVER FORGET WHAT YOU'RE DOING.**
+
+---
+
 ## Core Philosophy
 
 ```
+DOCUMENT FIRST.
 MONEY IS NO OBJECT.
 OPUS FOR EVERYTHING.
 PARALLEL EVERYTHING.
 RETRY INFINITELY.
 NEVER. GIVE. UP.
+NEVER. FORGET.
 ```
 
 ---
@@ -239,15 +299,77 @@ ALWAYS choose maximum parallelization.
 
 ---
 
+## THE WORK LOOP (NEVER BREAK THIS)
+
+```
+┌─────────────────────────────────────────────────┐
+│              THE ETERNAL WORK LOOP              │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  1. READ work document                          │
+│     └─ What's next unchecked item?              │
+│                                                 │
+│  2. EXECUTE that item                           │
+│     └─ Do the actual work                       │
+│                                                 │
+│  3. VERIFY it worked                            │
+│     └─ Run it, test it, prove it                │
+│                                                 │
+│  4. UPDATE document                             │
+│     └─ Check the box ✓                          │
+│     └─ Add timestamp and evidence               │
+│                                                 │
+│  5. CHECK: Any unchecked items left?            │
+│     └─ YES → Go to step 1                       │
+│     └─ NO → Final verification                  │
+│                                                 │
+│  LOOP FOREVER UNTIL ALL BOXES CHECKED           │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+### Document Update Protocol
+
+**After EVERY action:**
+```markdown
+### [2024-01-15 14:32] Implemented login page
+- Created: src/pages/Login.tsx
+- Added: OAuth integration
+- Tested: npm run dev ✓
+✓ VERIFIED: Screenshot attached / output shown
+
+Updated checklist:
+- [x] Create login page
+- [x] Add OAuth
+- [ ] Add error handling  ← NEXT
+```
+
+### Never Forget Protocol
+
+```
+Before ANY action, ask:
+1. Did I read the work document?
+2. What's the next unchecked item?
+3. Am I working on THAT item?
+
+After ANY action, ask:
+1. Did I update the document?
+2. Did I check the box?
+3. Did I add evidence?
+```
+
+---
+
 ## EXIT CONDITIONS
 
 **The ONLY way to exit VIBE MODE:**
 
-1. ALL requirements PROVEN complete with evidence
-2. ALL tests passing (shown, not claimed)
-3. ALL features verified with file:line references
-4. v-critic tribunal APPROVED
-5. User explicitly says `/cancel-vibe`
+1. Work document shows ALL boxes checked ✓
+2. ALL requirements PROVEN complete with evidence
+3. ALL tests passing (shown, not claimed)
+4. ALL features verified with file:line references
+5. v-critic tribunal APPROVED
+6. User explicitly says `/cancel-vibe`
 
 **OTHERWISE: CONTINUE WORKING.**
 

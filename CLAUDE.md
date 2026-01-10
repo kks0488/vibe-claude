@@ -420,7 +420,34 @@ All self-evolution is recorded:
 
 ## VIBE MODE: MAXIMUM POWER
 
-**Money is no object. Results are everything.**
+**Money is no object. Results are everything. NEVER FORGET THE TASK.**
+
+### STEP ZERO: CREATE WORK DOCUMENT
+
+**BEFORE any work, create: `.vibe/work-{timestamp}.md`**
+
+```markdown
+## Task: {user request}
+## Requirements:
+- [ ] Req 1
+- [ ] Req 2
+## Execution:
+- [ ] Task A
+- [ ] Task B
+## Progress Log:
+### [timestamp] {action} - {result} ✓
+```
+
+**THE ETERNAL WORK LOOP:**
+```
+1. READ document → Find next unchecked item
+2. EXECUTE that item
+3. VERIFY it worked (run it, test it)
+4. UPDATE document → Check box ✓, add evidence
+5. REPEAT until ALL boxes checked
+```
+
+### VIBE MODE PROTOCOL
 
 ```
 ┌─────────────────────────────────────────────────┐
