@@ -289,7 +289,12 @@ Pull requests welcome. Keep it simple. Keep it vibe.
 
 ## Inspired By
 
-This project draws inspiration from the open-source AI coding community, particularly [opencode](https://github.com/nicholasoxford/opencode) and similar multi-agent systems.
+This project draws inspiration from:
+
+- [opencode](https://github.com/nicholasoxford/opencode) - Open-source AI coding assistant
+- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code) - Official Anthropic documentation for Claude Code
+- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) - Multi-agent patterns and best practices
+- The open-source AI coding community
 
 ---
 
