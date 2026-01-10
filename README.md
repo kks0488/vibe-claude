@@ -2,11 +2,36 @@
 
 > **Don't think. Just vibe. Claude does the rest.**
 
-A multi-agent orchestration system for Claude Code.
-Built for vibe coders who want results without the technical overhead.
+A **self-evolving** multi-agent orchestration system for Claude Code.
+The more you use it, the smarter it gets.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai)
+
+---
+
+## Key Feature: Self-Evolution
+
+**Vibe-Claude evolves itself.** When it encounters a task it can't handle well:
+
+```
+Capability gap detected
+        ↓
+Create new agent or skill automatically
+        ↓
+Save to ~/.claude/agents/ or ~/.claude/skills/
+        ↓
+Use it for all future similar tasks
+```
+
+| Situation | What Happens |
+|-----------|--------------|
+| Repeated task pattern | Creates automation skill |
+| No agent fits the task | Creates new specialized agent |
+| Better method discovered | Upgrades existing capability |
+| External tool needed | Builds integration |
+
+**The system literally improves itself the more you use it.**
 
 ---
 
@@ -207,11 +232,38 @@ Attempt 4: Create new approach
 ...continues until success
 ```
 
-### 4. Self-Evolution
+### 4. Self-Evolution (The Secret Sauce)
 
-Missing a capability? Claude creates it:
-- New agent → `~/.claude/agents/v-*.md`
-- New skill → `~/.claude/skills/v-*/SKILL.md`
+This is what makes Vibe-Claude different. When Claude encounters something it can't handle well:
+
+```
+Day 1: "I need to optimize database queries"
+       → Claude struggles a bit
+
+Day 2: Claude creates v-db-optimizer agent
+       → Saves to ~/.claude/agents/v-db-optimizer.md
+
+Day 3+: All DB tasks routed to specialized agent
+        → Fast, efficient, tailored to YOUR codebase
+```
+
+**Evolution is logged:**
+```
+~/.claude/evolution-log.md
+
+## [2024-01-15] Created v-db-optimizer
+
+### Reason
+Repeated database optimization requests with suboptimal results
+
+### Change
+Created specialized agent with PostgreSQL expertise
+
+### Effect
+DB optimization tasks now 3x faster with better results
+```
+
+The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 
 ---
 
@@ -277,7 +329,7 @@ A: Yes. Edit the markdown files in `~/.claude/agents/`.
 2. **Trust the process** - Let Claude figure it out
 3. **Money solves problems** - Opus is worth it
 4. **Perfection is automatic** - Retries until right
-5. **Evolution is constant** - System improves itself
+5. **Evolution is constant** - System improves itself every day
 
 ---
 
