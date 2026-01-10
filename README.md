@@ -17,21 +17,35 @@ The more you use it, the smarter it gets.
 ```
 Capability gap detected
         ↓
-Create new agent or skill automatically
+Create new agent prompt or skill
         ↓
 Save to ~/.claude/agents/ or ~/.claude/skills/
         ↓
-Use it for all future similar tasks
+Reference and use in future tasks
 ```
 
 | Situation | What Happens |
 |-----------|--------------|
-| Repeated task pattern | Creates automation skill |
-| No agent fits the task | Creates new specialized agent |
-| Better method discovered | Upgrades existing capability |
-| External tool needed | Builds integration |
+| Repeated task pattern | Creates reusable prompt template |
+| Specialized knowledge needed | Creates expert agent prompt |
+| Better method discovered | Updates existing prompts |
+| External tool needed | Creates integration skill |
 
-**The system literally improves itself the more you use it.**
+### How Evolution Works
+
+New agents are saved as prompt files. Claude reads and applies them when relevant:
+
+```
+User: "Test my API endpoints"
+        ↓
+Claude checks ~/.claude/agents/
+        ↓
+Finds v-api-tester.md
+        ↓
+Reads the prompt and becomes that specialist
+```
+
+**The system learns your project's patterns over time.**
 
 ---
 
