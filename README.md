@@ -287,6 +287,12 @@ Pull requests welcome. Keep it simple. Keep it vibe.
 
 ---
 
+## Inspired By
+
+This project draws inspiration from the open-source AI coding community, particularly [opencode](https://github.com/nicholasoxford/opencode) and similar multi-agent systems.
+
+---
+
 ## License
 
 MIT
