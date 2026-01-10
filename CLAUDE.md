@@ -313,6 +313,45 @@ Self-evolution activates in these situations:
 | External tool needed | Create integration skill |
 | Better method discovered | Modify existing skill/agent |
 
+### PROACTIVE EVOLUTION (NEW)
+
+**After EVERY task completion, check:**
+
+```
+1. Did I struggle with something? → Consider new agent
+2. Did I repeat similar steps 3+ times? → Create automation
+3. Did I fail and retry multiple times? → Log lesson learned
+4. Is there a better way I discovered? → Update existing skill
+```
+
+**Evolution Proposal Format:**
+```
+[EVOLUTION OPPORTUNITY DETECTED]
+
+Type: New Agent / New Skill / Improvement
+Reason: {Why this would help}
+Proposal: {What to create/modify}
+
+Create now? (Proceed unless user objects)
+```
+
+### Failure Learning System
+
+When a task fails, record the lesson:
+
+```markdown
+# File: ~/.claude/lessons-learned.md
+
+## [Date] {What Failed}
+- Task: {What was attempted}
+- Failure: {What went wrong}
+- Root Cause: {Why it failed}
+- Solution: {How it was fixed}
+- Prevention: {How to avoid next time}
+```
+
+**Before starting similar tasks, check lessons-learned.md first.**
+
 ### Evolution Log
 
 All self-evolution is recorded:
