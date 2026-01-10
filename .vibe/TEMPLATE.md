@@ -1,6 +1,4 @@
-# VIBE Work Document Template
-
-Copy this template for each new task.
+# VIBE Work Document
 
 ---
 
@@ -13,33 +11,53 @@ Copy this template for each new task.
 
 ## Requirements
 
-Break down the user's request into specific requirements:
-
 - [ ] Requirement 1
 - [ ] Requirement 2
 - [ ] Requirement 3
 
 ---
 
-## Execution Checklist
-
-### Phase 1: Reconnaissance
+## Phase 1: Reconnaissance
 - [ ] Analyze requirements
 - [ ] Find related code
 - [ ] Research best practices
 - [ ] Identify risks
 
-### Phase 2: Planning
+**Phase 1 Notes:**
+```
+{findings, discoveries, important context}
+```
+
+---
+
+## Phase 2: Planning
 - [ ] Create implementation plan
 - [ ] Define acceptance criteria
+- [ ] Break down into tasks
 
-### Phase 3: Execution
+**Phase 2 Notes:**
+```
+{plan details, architecture decisions}
+```
+
+---
+
+## Phase 3: Execution
 - [ ] Task A
 - [ ] Task B
 - [ ] Task C
-(Add more as needed)
+- [ ] Task D
+- [ ] Task E
+(add more as needed)
 
-### Phase 4: Verification
+**Phase 3 Notes:**
+```
+{implementation details, code locations}
+```
+
+---
+
+## Phase 4: Verification
 - [ ] Run all tests
 - [ ] Code review (v-critic)
 - [ ] Logic verification (v-analyst)
@@ -47,31 +65,40 @@ Break down the user's request into specific requirements:
 - [ ] Lint passes
 - [ ] Types check
 
+**Phase 4 Notes:**
+```
+{test results, review feedback}
+```
+
+---
+
+## Phase 5: Polish & Documentation (Optional)
+- [ ] Refactor if needed
+- [ ] Add comments/docs
+- [ ] Update README
+- [ ] Performance check
+- [ ] Security check
+
+**Phase 5 Notes:**
+```
+{polish details, documentation updates}
+```
+
 ---
 
 ## Progress Log
 
-### [{timestamp}] Started
-Initial analysis of the task.
+### [{timestamp}] Phase 1 Started
+{description}
 
-### [{timestamp}] {Action taken}
-{What was done}
-{Evidence/output}
-✓ Verified: {How it was verified}
+### [{timestamp}] {Action}
+- What: {what was done}
+- Result: {outcome}
+- Evidence: {proof}
+✓ Verified
 
 ### [{timestamp}] {Next action}
 ...
-
----
-
-## Final Verification
-
-- [ ] All requirements boxes checked
-- [ ] All execution boxes checked
-- [ ] All verification boxes checked
-- [ ] Evidence provided for each
-- [ ] v-critic APPROVED
-- [ ] v-analyst VERIFIED
 
 ---
 
@@ -88,10 +115,12 @@ Initial analysis of the task.
   - [Req 1]: file:line ✓
   - [Req 2]: file:line ✓
 
-✓ Tribunal:
-  - v-critic: APPROVED
-  - v-analyst: VERIFIED
-  - Build: SUCCESS
+✓ All Phases Complete:
+  - Phase 1: ✓
+  - Phase 2: ✓
+  - Phase 3: ✓
+  - Phase 4: ✓
+  - Phase 5: ✓ or N/A
 ```
 
 **COMPLETED:** {YYYY-MM-DD HH:MM}

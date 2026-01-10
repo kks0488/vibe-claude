@@ -27,30 +27,52 @@ Started: {datetime}
 
 ---
 
-## Execution Log
-
-### Phase 1: Recon
+## Phase 1: Recon
 - [ ] Analyze requirements
 - [ ] Find related code
 - [ ] Research best practices
 - [ ] Identify risks
-
-### Phase 2: Planning
-- [ ] Create implementation plan
-
-### Phase 3: Execution
-- [ ] Task A
-- [ ] Task B
-- [ ] Task C
-
-### Phase 4: Verification
-- [ ] Run tests
-- [ ] Code review
-- [ ] Final check
+Notes: {findings}
 
 ---
 
-## Progress Updates
+## Phase 2: Planning
+- [ ] Create implementation plan
+- [ ] Define acceptance criteria
+- [ ] Break down into tasks
+Notes: {plan details}
+
+---
+
+## Phase 3: Execution
+- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+- [ ] Task D
+- [ ] Task E
+Notes: {implementation details}
+
+---
+
+## Phase 4: Verification
+- [ ] Run tests
+- [ ] Code review (v-critic)
+- [ ] Logic check (v-analyst)
+- [ ] Build passes
+Notes: {test results}
+
+---
+
+## Phase 5: Polish (Optional - leave empty if not needed)
+- [ ] Refactor
+- [ ] Add docs/comments
+- [ ] Performance check
+- [ ] Security check
+Notes: {polish details}
+
+---
+
+## Progress Log
 
 ### [timestamp] Started
 {description}
@@ -62,6 +84,7 @@ Started: {datetime}
 
 **UPDATE THIS DOCUMENT AFTER EVERY ACTION.**
 **CHECK BOXES AS YOU COMPLETE TASKS.**
+**PHASE 5 IS OPTIONAL - MARK N/A IF SKIPPED.**
 **NEVER FORGET WHAT YOU'RE DOING.**
 
 ---
@@ -150,6 +173,30 @@ All recon results → v-planner (Opus)
 │                                                 │
 │  ALL THREE MUST APPROVE                         │
 │  ANY REJECTION = BACK TO EXECUTION              │
+└─────────────────────────────────────────────────┘
+```
+
+### Phase 5: POLISH & DOCS (Optional - Skip if not needed)
+
+```
+┌─────────────────────────────────────────────────┐
+│           POLISH & DOCUMENTATION                │
+├─────────────────────────────────────────────────┤
+│  □ Refactor for cleanliness                     │
+│  □ Add inline comments where complex            │
+│  □ Update README/docs if needed                 │
+│  □ Performance optimization                     │
+│  □ Security review                              │
+│                                                 │
+│  SKIP IF:                                       │
+│  - Quick fix / small change                     │
+│  - No user-facing docs needed                   │
+│  - Already clean code                           │
+│                                                 │
+│  REQUIRED IF:                                   │
+│  - New feature                                  │
+│  - API changes                                  │
+│  - Complex logic added                          │
 └─────────────────────────────────────────────────┘
 ```
 

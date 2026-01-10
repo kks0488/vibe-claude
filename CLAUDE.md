@@ -428,12 +428,22 @@ All self-evolution is recorded:
 
 ```markdown
 ## Task: {user request}
-## Requirements:
-- [ ] Req 1
-- [ ] Req 2
-## Execution:
-- [ ] Task A
-- [ ] Task B
+
+## Phase 1: Recon
+- [ ] Analyze  - [ ] Find code  - [ ] Research  - [ ] Risks
+
+## Phase 2: Planning
+- [ ] Plan  - [ ] Criteria  - [ ] Break down
+
+## Phase 3: Execution
+- [ ] Task A  - [ ] Task B  - [ ] Task C
+
+## Phase 4: Verification
+- [ ] Tests  - [ ] Review  - [ ] Build
+
+## Phase 5: Polish (Optional)
+- [ ] Refactor  - [ ] Docs  - [ ] Security
+
 ## Progress Log:
 ### [timestamp] {action} - {result} ✓
 ```
@@ -444,7 +454,7 @@ All self-evolution is recorded:
 2. EXECUTE that item
 3. VERIFY it worked (run it, test it)
 4. UPDATE document → Check box ✓, add evidence
-5. REPEAT until ALL boxes checked
+5. REPEAT through ALL 5 phases (Phase 5 optional)
 ```
 
 ### VIBE MODE PROTOCOL
@@ -475,6 +485,12 @@ All self-evolution is recorded:
 │  ├─ v-analyst: Verify logic                     │
 │  └─ Tests: Run everything                       │
 │      ALL MUST APPROVE                           │
+│                                                 │
+│  Phase 5: POLISH (Optional)                     │
+│  ├─ Refactor if needed                          │
+│  ├─ Add docs/comments                           │
+│  └─ Security/performance check                  │
+│      SKIP if not needed                         │
 │                                                 │
 │  FAIL? → Loop back. Infinitely.                 │
 │  PASS? → PROVEN DONE.                           │
