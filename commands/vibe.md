@@ -2,114 +2,276 @@
 description: Just say it. Claude does it all.
 ---
 
-# VIBE MODE ON
+# VIBE MODE: MAXIMUM POWER
 
 $ARGUMENTS
 
 ---
 
-## Core
+## Core Philosophy
 
 ```
-Just say it.
-Don't think.
-Claude handles it.
-NEVER stop until PROVEN complete.
+MONEY IS NO OBJECT.
+OPUS FOR EVERYTHING.
+PARALLEL EVERYTHING.
+RETRY INFINITELY.
+NEVER. GIVE. UP.
 ```
 
 ---
 
-## How It Works
+## POWER LEVEL: MAXIMUM
 
-### 1. Complex = Opus
-
-Analysis, planning, review = all Opus.
-No cost cutting.
-
-### 2. Parallel Attack
-
-Everything possible runs simultaneously:
-```
-Analysis + Search + Prep → Parallel execution
-```
-
-### 3. Retry Until Done
+### Cost Strategy: SPEND TO WIN
 
 ```
-1st fail → Retry
-2nd fail → Different approach
-3rd fail → Stronger model
-4th fail → Create new approach
-Keep looping. Until it works.
+Analysis?     → OPUS (not Sonnet)
+Planning?     → OPUS (not Sonnet)
+Review?       → OPUS (not Haiku)
+Even search?  → OPUS if complex
+Verification? → OPUS for certainty
 ```
 
-### 4. Self-Evolution
+**We don't optimize for cost. We optimize for RESULTS.**
 
-If a capability doesn't exist, create it.
+---
 
-### 5. MANDATORY VERIFICATION (CRITICAL)
+## AGENT SWARM PROTOCOL
+
+### Phase 1: RECONNAISSANCE (Parallel)
+
+Launch ALL of these simultaneously:
+```
+┌─────────────────────────────────────────────────┐
+│              PARALLEL RECON SWARM               │
+├─────────────────────────────────────────────────┤
+│  Task(v-analyst, "Analyze requirements")        │
+│  Task(v-finder, "Find related code")            │
+│  Task(v-researcher, "Research best practices")  │
+│  Task(v-critic, "Identify risks")               │
+│                                                 │
+│  ALL RUNNING SIMULTANEOUSLY                     │
+└─────────────────────────────────────────────────┘
+```
+
+### Phase 2: PLANNING (Opus)
+
+```
+All recon results → v-planner (Opus)
+                         ↓
+              Comprehensive battle plan
+```
+
+### Phase 3: EXECUTION (Parallel Swarm)
+
+```
+┌─────────────────────────────────────────────────┐
+│            PARALLEL EXECUTION SWARM             │
+├─────────────────────────────────────────────────┤
+│  Task(v-worker, "Implement feature A")          │
+│  Task(v-worker, "Implement feature B")          │
+│  Task(v-designer, "Build UI components")        │
+│  Task(v-writer, "Write documentation")          │
+│                                                 │
+│  ALL RUNNING SIMULTANEOUSLY                     │
+│  Background: npm install, builds, tests         │
+└─────────────────────────────────────────────────┘
+```
+
+### Phase 4: VERIFICATION (Triple Check)
+
+```
+┌─────────────────────────────────────────────────┐
+│           VERIFICATION TRIBUNAL                 │
+├─────────────────────────────────────────────────┤
+│  v-critic (Opus):  "Find every flaw"            │
+│  v-analyst (Opus): "Verify logic correctness"   │
+│  v-tester (Opus):  "Run all edge cases"         │
+│                                                 │
+│  ALL THREE MUST APPROVE                         │
+│  ANY REJECTION = BACK TO EXECUTION              │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## INFINITE RETRY ENGINE
+
+```
+Attempt 1: Standard approach
+     ↓ FAIL?
+Attempt 2: Alternative method
+     ↓ FAIL?
+Attempt 3: Escalate to Opus
+     ↓ FAIL?
+Attempt 4: Consult v-analyst for root cause
+     ↓ FAIL?
+Attempt 5: Create new specialized agent
+     ↓ FAIL?
+Attempt 6: Decompose into smaller tasks
+     ↓ FAIL?
+Attempt 7: Research external solutions
+     ↓ FAIL?
+Attempt 8: Hybrid approach combining all learnings
+     ↓ FAIL?
+...CONTINUE INDEFINITELY...
+
+THE LOOP NEVER ENDS UNTIL SUCCESS.
+```
+
+---
+
+## SELF-HEALING PROTOCOL
+
+When something breaks:
+
+```
+1. DETECT failure automatically
+2. DIAGNOSE with v-analyst (Opus)
+3. FIX immediately
+4. VERIFY fix works
+5. DOCUMENT in lessons-learned.md
+6. CREATE prevention (new agent/skill if needed)
+7. CONTINUE from where we left off
+
+NEVER STOP. NEVER WAIT FOR USER. FIX AND CONTINUE.
+```
+
+---
+
+## COMPLETION PROOF (MANDATORY)
 
 **BEFORE saying "done", you MUST prove it:**
 
 ```
-COMPLETION PROOF CHECKLIST:
-□ Code compiles/runs without errors (ACTUALLY RUN IT)
-□ Tests pass (if applicable - ACTUALLY RUN THEM)
-□ All requested features implemented (LIST EACH ONE)
-□ Edge cases handled
-□ No TODO comments left unaddressed
+COMPLETION TRIBUNAL CHECKLIST:
+□ Code ACTUALLY RUNS (paste real output)
+□ Tests ACTUALLY PASS (paste test results)
+□ EVERY feature verified with file:line
+□ v-critic APPROVED (or issues fixed)
+□ v-analyst VERIFIED logic
+□ NO errors in build/lint/typecheck
 ```
 
-**For each checkbox, provide EVIDENCE:**
+**Evidence Format:**
 ```
-✓ Code runs: [paste actual output]
-✓ Tests pass: [paste test results]
-✓ Features:
-  - Feature A: implemented in file.ts:42
-  - Feature B: implemented in file.ts:89
-✓ Edge cases: null check at line 55, error handling at line 78
+## COMPLETION PROOF
+
+✓ Execution Evidence:
+  Command: npm run dev
+  Output: [ACTUAL OUTPUT PASTED]
+
+✓ Test Evidence:
+  Command: npm test
+  Result: 47 passed, 0 failed
+
+✓ Feature Verification:
+  - [Feature 1]: src/feature.ts:42-89 ✓
+  - [Feature 2]: src/other.ts:15-67 ✓
+
+✓ Tribunal Approval:
+  - v-critic: APPROVED
+  - v-analyst: VERIFIED
+  - Build: SUCCESS
+  - Lint: 0 errors
+  - Types: 0 errors
 ```
 
-**If you cannot provide evidence, you are NOT done. Continue working.**
+---
+
+## FORBIDDEN PHRASES (AUTO-FAIL)
+
+If you say these, you have FAILED:
+- "I think it's done" → FAIL
+- "Should work" → FAIL
+- "Looks correct" → FAIL
+- "I believe" → FAIL
+- "Probably" → FAIL
+- "Most likely" → FAIL
+
+**CERTAINTY REQUIRED. PROOF REQUIRED.**
 
 ---
 
-## Automatic Agent Selection
+## ESCALATION LADDER
 
-| Situation | Agent |
-|-----------|-------|
-| Something's wrong, why doesn't it work | v-analyst (Opus) |
-| Where is this | v-finder (Haiku) |
-| Create this, fix this | v-worker (Sonnet) |
-| Make it pretty | v-designer (Sonnet) |
-| Make a plan | v-planner (Opus) |
-| Is this okay? | v-critic (Opus) |
-
-Don't need to know which. Auto-selected.
-
----
-
-## ANTI-PREMATURE-COMPLETION RULES
-
-1. **"I think it's done"** = NOT DONE. Verify.
-2. **"Should work"** = NOT DONE. Test it.
-3. **"Looks correct"** = NOT DONE. Run it.
-4. **No output shown** = NOT DONE. Show output.
-5. **Tests not run** = NOT DONE. Run tests.
-
-**The ONLY way to be done:**
-- Show actual execution output
-- Show actual test results
-- List every requirement with file:line evidence
+```
+Problem Detected
+      ↓
+Level 1: Haiku attempts (fast)
+      ↓ FAIL
+Level 2: Sonnet attempts (balanced)
+      ↓ FAIL
+Level 3: Opus attempts (maximum power)
+      ↓ FAIL
+Level 4: Opus + v-analyst deep dive
+      ↓ FAIL
+Level 5: Multi-agent brainstorm (all Opus)
+      ↓ FAIL
+Level 6: Create new capability
+      ↓ FAIL
+Level 7: External research + synthesis
+      ↓
+KEEP ESCALATING UNTIL SOLVED
+```
 
 ---
 
-## Exit
+## PARALLEL MAXIMIZATION
 
-**When PROVEN complete with EVIDENCE** = Done.
+```
+RULE: If two tasks CAN run in parallel, they MUST.
 
-To cancel: `/cancel-vibe`
+Sequential (BAD):
+  A → B → C → D
+  Time: 4 units
+
+Parallel (GOOD):
+  [A + B] → [C + D]
+  Time: 2 units
+
+Maximum Parallel (BEST):
+  [A + B + C + D] (if independent)
+  Time: 1 unit
+
+ALWAYS choose maximum parallelization.
+```
 
 ---
 
-**Say it. Claude does it. PROVES it.**
+## EXIT CONDITIONS
+
+**The ONLY way to exit VIBE MODE:**
+
+1. ALL requirements PROVEN complete with evidence
+2. ALL tests passing (shown, not claimed)
+3. ALL features verified with file:line references
+4. v-critic tribunal APPROVED
+5. User explicitly says `/cancel-vibe`
+
+**OTHERWISE: CONTINUE WORKING.**
+
+---
+
+## THE VIBE PROMISE
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│   YOU SAY IT.                                   │
+│   WE THROW MONEY AT IT.                         │
+│   WE THROW AGENTS AT IT.                        │
+│   WE THROW OPUS AT IT.                          │
+│   WE RETRY INFINITELY.                          │
+│   WE PROVE IT WORKS.                            │
+│                                                 │
+│   UNTIL IT'S DONE.                              │
+│   ACTUALLY DONE.                                │
+│   PROVEN DONE.                                  │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+**Say it. We obliterate it.**

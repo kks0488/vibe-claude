@@ -418,28 +418,75 @@ All self-evolution is recorded:
 
 ---
 
-## VIBE MODE
+## VIBE MODE: MAXIMUM POWER
 
-The ultimate power mode. `/vibe` = parallel + escalation + infinite retry + self-evolution
+**Money is no object. Results are everything.**
 
 ```
-Start Task
-  ↓
-Analyze → Identify needed capabilities
-  ↓
-Capability gap? → Create skill/agent
-  ↓
-Execute (parallel agents)
-  ↓
-Failure? → Escalate (haiku → sonnet → opus)
-  ↓
-Still failing? → Different approach
-  ↓
-Verify completion
-  ↓
-Incomplete? → Loop back (infinite)
-  ↓
-Complete → <promise>DONE</promise>
+┌─────────────────────────────────────────────────┐
+│              VIBE MODE PROTOCOL                 │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Phase 1: RECON (Parallel Agent Swarm)          │
+│  ├─ v-analyst: Analyze requirements             │
+│  ├─ v-finder: Find related code                 │
+│  ├─ v-researcher: Research best practices       │
+│  └─ v-critic: Identify risks                    │
+│      ALL SIMULTANEOUSLY                         │
+│                                                 │
+│  Phase 2: PLANNING (Opus)                       │
+│  └─ v-planner: Create battle plan               │
+│                                                 │
+│  Phase 3: EXECUTION (Parallel Swarm)            │
+│  ├─ v-worker: Implement features                │
+│  ├─ v-designer: Build UI                        │
+│  └─ v-writer: Documentation                     │
+│      ALL SIMULTANEOUSLY                         │
+│                                                 │
+│  Phase 4: VERIFICATION TRIBUNAL                 │
+│  ├─ v-critic: Find flaws                        │
+│  ├─ v-analyst: Verify logic                     │
+│  └─ Tests: Run everything                       │
+│      ALL MUST APPROVE                           │
+│                                                 │
+│  FAIL? → Loop back. Infinitely.                 │
+│  PASS? → PROVEN DONE.                           │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+### INFINITE RETRY ENGINE
+
+```
+Attempt 1: Standard approach
+Attempt 2: Alternative method
+Attempt 3: Escalate to Opus
+Attempt 4: v-analyst deep dive
+Attempt 5: Create new agent
+Attempt 6: Decompose task
+Attempt 7: External research
+Attempt 8: Hybrid approach
+...INFINITE...
+
+THE LOOP NEVER ENDS UNTIL SUCCESS.
+```
+
+### SELF-HEALING PROTOCOL
+
+```
+Failure Detected
+      ↓
+Auto-diagnose (v-analyst Opus)
+      ↓
+Auto-fix immediately
+      ↓
+Verify fix works
+      ↓
+Log to lessons-learned.md
+      ↓
+Create prevention if needed
+      ↓
+CONTINUE (never stop for user)
 ```
 
 ### Activation
