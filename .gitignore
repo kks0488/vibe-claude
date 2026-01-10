@@ -1,0 +1,42 @@
+# Sensitive files
+.credentials.json
+credentials.json
+*.credentials*
+
+# History/Cache
+history.jsonl
+cache/
+paste-cache/
+statsig/
+stats-cache.json
+
+# Session/Temp
+session-env/
+shell-snapshots/
+transcripts/
+todos/
+debug/
+file-history/
+
+# Project session data
+projects/
+
+# Backups
+*.bak
+
+# Plugins (separate management)
+plugins/
+
+# Local settings
+settings.local.json
+settings.json
+
+# Update logs
+.vibe-update.log
+.vibe-silent-update.json
+
+# Plans (local work)
+plans/
+.vibe-version.json
+evolution-log.md
+hooks/
