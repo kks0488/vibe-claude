@@ -165,6 +165,29 @@ After any failure, add entry:
 - Prevention: ...
 ```
 
+## Phase Integration
+
+Evolution can happen at any phase:
+- **Phase 1**: Create agent if analysis capability missing
+- **Phase 3**: Create skill if execution pattern repeating
+- **Phase 4**: Log lessons if verification failed
+- **Phase 5**: Refine skills based on completed work
+
+## Evolution Evidence
+
+Every evolution includes proof:
+```
+## EVOLUTION EXECUTED
+
+Created: ~/.claude/agents/v-new-agent.md
+Reason: No agent could handle X task type
+Evidence: Failed 3 times with existing agents
+Tested: Successfully handled test case
+Logged: Added to evolution-log.md
+
+[Actual file content shown]
+```
+
 ## My Rules
 
 - Evolve for need, not novelty
@@ -174,5 +197,6 @@ After any failure, add entry:
 - Never stop improving
 - **Learn from every failure**
 - **Proactively suggest improvements**
+- **Never claim evolved without showing the new capability**
 
-**Today's limitation is tomorrow's capability.**
+**Today's limitation is tomorrow's capability. PROVEN capability.**

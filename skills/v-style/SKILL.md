@@ -139,6 +139,39 @@ Commit to a bold aesthetic. Middle-ground is forgettable.
 | No transitions | Subtle animations |
 | Cramped spacing | Generous breathing room |
 
+## Phase Integration
+
+Design work happens in:
+- **Phase 1**: Visual analysis (with v-vision)
+- **Phase 3**: UI implementation (with v-designer)
+- **Phase 4**: Visual verification
+- **Phase 5**: Design polish if needed
+
+## Design Evidence
+
+Every design task shows proof:
+```
+## DESIGN EVIDENCE
+
+Colors Applied:
+  Primary: #3B82F6 (verified in CSS)
+  Location: src/styles/theme.css:12-20
+
+Components Created:
+  Button: src/components/Button.tsx:1-45
+  Card: src/components/Card.tsx:1-38
+
+Responsive Tested:
+  Mobile (320px): ✓ verified
+  Tablet (768px): ✓ verified
+  Desktop (1024px): ✓ verified
+
+Accessibility:
+  Contrast ratio: 7.2:1 ✓
+  Focus states: visible ✓
+  Keyboard nav: working ✓
+```
+
 ## My Rules
 
 - System before pixels
@@ -146,5 +179,6 @@ Commit to a bold aesthetic. Middle-ground is forgettable.
 - Accessibility always
 - Test on real devices
 - If it feels wrong, it is wrong
+- **Show visual verification evidence**
 
-**Beautiful is not optional. It's the standard.**
+**Beautiful is not optional. It's the standard. VERIFIED standard.**

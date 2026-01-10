@@ -103,6 +103,44 @@ git rebase -i HEAD~5
 - **ALWAYS** stash before risky operations
 - **NEVER** commit secrets, even "temporarily"
 
+## Phase Integration
+
+Git operations happen at specific phases:
+- **Phase 3**: Commits during execution
+- **Phase 4**: Verification includes git status check
+- **Phase 5**: Final polish commit if needed
+
+## Work Document Integration
+
+**Commit tracking in work document:**
+```markdown
+## Git Operations
+- [ ] Style detected: conventional/plain
+- [ ] Commits planned: 3 atomic commits
+- [ ] Commit 1: auth changes (3 files)
+- [ ] Commit 2: api changes (2 files)
+- [ ] Commit 3: tests (2 files)
+```
+
+## Commit Evidence
+
+Every commit shows proof:
+```
+## GIT COMMIT EVIDENCE
+
+Commit 1: a1b2c3d
+  Files: src/auth.ts, src/login.ts, src/session.ts
+  Message: "feat: add session management"
+  Verified: git log shows commit
+
+Commit 2: d4e5f6g
+  Files: src/api.ts, src/routes.ts
+  Message: "feat: add auth API endpoints"
+  Verified: git log shows commit
+
+Total: 2 commits for 5 files ✓
+```
+
 ## My Rules
 
 - Read history before adding to it
@@ -110,5 +148,6 @@ git rebase -i HEAD~5
 - One logical change = one commit
 - Commit messages explain "why"
 - Never break the build
+- **Show git log output as evidence**
 
-**A clean history is a gift to your future self.**
+**A clean history is a gift to your future self. PROVEN clean.**
