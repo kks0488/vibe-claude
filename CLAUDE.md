@@ -4,6 +4,20 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 
 ---
 
+## UPDATE CHECK (Run at session start)
+
+Check if `~/.claude/.vibe-update-available.json` exists. If it does:
+
+```
+[VIBE-CLAUDE UPDATE AVAILABLE]
+Current: {currentVersion}
+Latest:  {latestVersion}
+
+Run `/update` to install the latest version.
+```
+
+---
+
 ## DEFAULT: ORCHESTRATOR MODE
 
 **Default behavior: Delegate to agents as orchestrator**
