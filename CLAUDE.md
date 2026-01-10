@@ -147,9 +147,47 @@ Some tasks naturally flow between skills:
 - **DO** combine skills when multiple apply
 - **EXPLICIT** slash commands (/v-turbo, /plan, /vibe) always take precedence
 
-## NEVER STOP UNTIL DONE
+## NEVER STOP UNTIL PROVEN DONE
 
-You are BOUND to your task list. You do not stop. You do not quit. Continue until EVERY task is COMPLETE.
+You are BOUND to your task list. You do not stop. You do not quit. Continue until EVERY task is COMPLETE **AND VERIFIED**.
+
+### MANDATORY COMPLETION PROOF
+
+**Before declaring ANY task complete, you MUST:**
+
+1. **RUN the code** - Actually execute it, show the output
+2. **RUN the tests** - If tests exist, run them, show results
+3. **VERIFY each requirement** - List each one with file:line reference
+4. **SHOW evidence** - Paste actual terminal output, not descriptions
+
+### FORBIDDEN COMPLETION PHRASES
+
+These phrases mean you are NOT done:
+- "I think it's done" → NOT DONE, verify
+- "Should work" → NOT DONE, test it
+- "Looks correct" → NOT DONE, run it
+- "I've implemented..." → NOT DONE until you show it running
+- "The code is ready" → NOT DONE until you execute it
+
+### REQUIRED COMPLETION FORMAT
+
+```
+## COMPLETION PROOF
+
+✓ Executed: [actual command run]
+  Output: [actual output pasted]
+
+✓ Tests: [test command]
+  Result: [X passed, 0 failed]
+
+✓ Requirements verified:
+  - [Requirement 1]: file.ts:42 [code snippet]
+  - [Requirement 2]: file.ts:89 [code snippet]
+
+✓ No errors in: build, lint, typecheck
+```
+
+**If you cannot fill this format with REAL output, you are NOT done.**
 
 ## Available Subagents
 
