@@ -211,42 +211,77 @@ Expensive, but effective.
 
 ## How It Works
 
-### 1. Automatic Agent Selection
+### The 5-Phase System
 
-You say something, Claude figures out who should handle it:
-
-| You Say | Agent Selected |
-|---------|----------------|
-| "why isn't this working" | v-analyst |
-| "where is the config" | v-finder |
-| "build a dashboard" | v-worker |
-| "make it pretty" | v-designer |
-| "plan this feature" | v-planner |
-
-### 2. Parallel Execution
-
-Independent tasks run simultaneously:
-```
-[Analysis] + [Search] → parallel
-        ↓
-    [Planning]
-        ↓
-[Implementation] + [Testing] → parallel
-        ↓
-    [Verification]
-```
-
-### 3. Infinite Retry
+Every task follows this proven structure:
 
 ```
-Attempt 1: Try
-Attempt 2: Try differently
-Attempt 3: Use stronger model
-Attempt 4: Create new approach
+┌─────────────────────────────────────────────────┐
+│              THE 5-PHASE SYSTEM                 │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Phase 1: RECON (Parallel)                      │
+│  ├─ v-analyst: Analyze requirements             │
+│  ├─ v-finder: Find related code                 │
+│  ├─ v-researcher: Research best practices       │
+│  └─ v-advisor: Identify risks                   │
+│                                                 │
+│  Phase 2: PLANNING                              │
+│  └─ v-planner: Create comprehensive plan        │
+│                                                 │
+│  Phase 3: EXECUTION (Parallel)                  │
+│  ├─ v-worker: Implement features                │
+│  ├─ v-designer: Build UI components             │
+│  └─ v-writer: Write documentation               │
+│                                                 │
+│  Phase 4: VERIFICATION TRIBUNAL                 │
+│  ├─ v-critic: Quality review                    │
+│  ├─ v-analyst: Logic verification               │
+│  └─ Tests: Automated checks                     │
+│  ALL THREE MUST APPROVE                         │
+│                                                 │
+│  Phase 5: POLISH (Optional)                     │
+│  ├─ Refactor if needed                          │
+│  ├─ Add docs/comments                           │
+│  └─ Security/performance check                  │
+│  SKIP if not needed                             │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+### Work Document Tracking
+
+Every `/vibe` task creates a tracking document:
+```
+.vibe/work-{timestamp}.md
+```
+
+This ensures **nothing is forgotten**. Each task is tracked with checkboxes and evidence.
+
+### Evidence-Based Completion
+
+**Nothing is "done" without proof:**
+- Code must actually RUN (output shown)
+- Tests must actually PASS (results pasted)
+- Every feature verified with `file:line` references
+
+**Forbidden phrases:**
+- "Should work" → Must TEST it
+- "I think it's done" → Must PROVE it
+- "Looks correct" → Must RUN it
+
+### Infinite Retry Engine
+
+```
+Attempt 1: Standard approach
+Attempt 2: Alternative method
+Attempt 3: Escalate to Opus
+Attempt 4: v-analyst deep dive
+Attempt 5: Create new agent
 ...continues until success
 ```
 
-### 4. Self-Evolution (The Secret Sauce)
+### Self-Evolution (The Secret Sauce)
 
 This is what makes Vibe-Claude different. When Claude encounters something it can't handle well:
 
