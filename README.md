@@ -356,16 +356,16 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `/vibe <task>` | Do anything. Main command. |
-| `/v-turbo <task>` | Maximum speed mode |
-| `/v-plan <task>` | Just plan, don't execute |
-| `/v-review` | Review existing code/plan |
-| `/v-analyze <target>` | Deep analysis only |
-| `/v-continue` | Resume from previous session |
-| `/v-update` | Check for updates |
-| `/v-cancel` | Stop current vibe session |
+| Command | Delegates To | Description |
+|---------|--------------|-------------|
+| `/vibe <task>` | Multi-agent | Maximum power mode - parallel + escalation + infinite retry |
+| `/v-turbo <task>` | Parallel agents | Maximum speed with concurrent execution |
+| `/v-plan <task>` | v-planner | Strategic planning session |
+| `/v-review` | v-critic | Critical evaluation of code/plans |
+| `/v-analyze <target>` | v-analyst | Root cause analysis, debugging |
+| `/v-continue` | v-continue | Resume work from previous session |
+| `/v-update` | - | Check for and install vibe-claude updates |
+| `/v-cancel` | - | Stop current vibe session, save progress |
 
 ---
 
@@ -380,11 +380,12 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 │   ├── v-worker.md
 │   ├── v-designer.md
 │   └── ...
-├── skills/            # 4 enhancement skills
+├── skills/            # 5 enhancement skills
 │   ├── v-turbo/
 │   ├── v-git/
 │   ├── v-style/
-│   └── v-evolve/
+│   ├── v-evolve/
+│   └── v-continue/
 └── commands/          # Slash commands
     ├── vibe.md
     └── ...

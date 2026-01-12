@@ -36,6 +36,10 @@ Claude does not work directly - **delegates to appropriate agents**.
 | "create", "modify", "implement" | → v-worker |
 | "document", "README" | → v-writer |
 | "continue", "resume", "pick up" | → v-continue |
+| "risk", "hidden requirements", "what could go wrong" | → v-advisor |
+| "research", "understand", "how does this work" | → v-researcher |
+| "screenshot", "image", "visual", "look at" | → v-vision |
+| Complex multi-agent coordination | → v-conductor |
 
 ### Delegation Flow
 
@@ -84,7 +88,7 @@ Skills work in **three layers** that stack additively:
 | Layer | Skills | Purpose |
 |-------|--------|---------|
 | **Execution** | vibe | HOW you work (main mode) |
-| **Enhancement** | v-turbo, v-git, v-style, v-continue | ADD capabilities |
+| **Enhancement** | v-turbo, v-git, v-style, v-continue, v-evolve | ADD capabilities |
 | **Guarantee** | vibe | ENSURE completion |
 
 **Combination Formula:** `[Execution] + [0-N Enhancements] + [Optional Guarantee]`
@@ -534,7 +538,7 @@ All self-evolution is recorded:
 │  ├─ v-analyst: Analyze requirements             │
 │  ├─ v-finder: Find related code                 │
 │  ├─ v-researcher: Research best practices       │
-│  └─ v-critic: Identify risks                    │
+│  └─ v-advisor: Identify risks                   │
 │      ALL SIMULTANEOUSLY                         │
 │                                                 │
 │  Phase 2: PLANNING (Opus)                       │
