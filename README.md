@@ -296,7 +296,7 @@ Never lose progress when context runs out:
 └─────────────────────────────────────────────────┘
 ```
 
-**How to use `/vibe continue`:**
+**How to use `/v-continue`:**
 
 ```
 # Previous session ends at 15% context
@@ -304,7 +304,7 @@ Never lose progress when context runs out:
 Session state saved to: .vibe/session-state.md
 
 # Start new session
-User: /vibe continue
+User: /v-continue
 
 # Claude automatically restores and continues
 [SESSION RESTORED]
@@ -322,7 +322,7 @@ Resuming password reset implementation...
 
 **Key features:**
 - Auto-save at 15% context remaining
-- One command to restore: `/vibe continue`
+- One command to restore: `/v-continue`
 - Full progress recovery with task status
 - Seamless continuation of long tasks
 
@@ -370,13 +370,13 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 | Command | Description |
 |---------|-------------|
 | `/vibe <task>` | Do anything. Main command. |
-| `/cancel-vibe` | Stop current vibe session |
 | `/v-turbo <task>` | Maximum speed mode |
-| `/plan <task>` | Just plan, don't execute |
-| `/review` | Review existing code/plan |
-| `/analyze <target>` | Deep analysis only |
-| `/update` | Check for updates |
-| `/vibe continue` | Resume from previous session |
+| `/v-plan <task>` | Just plan, don't execute |
+| `/v-review` | Review existing code/plan |
+| `/v-analyze <target>` | Deep analysis only |
+| `/v-continue` | Resume from previous session |
+| `/v-update` | Check for updates |
+| `/v-cancel` | Stop current vibe session |
 
 ---
 

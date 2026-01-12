@@ -10,7 +10,7 @@ Resume work from where the previous session left off.
 ## Activation
 
 ```
-/vibe continue
+/v-continue
 ```
 
 ## How It Works
@@ -32,7 +32,7 @@ Resume work from where the previous session left off.
 ## Protocol
 
 ```
-/vibe continue
+/v-continue
     ↓
 ┌─────────────────────────────────────────────────┐
 │  [SESSION RESTORED]                             │
@@ -63,12 +63,12 @@ Continue working automatically
 **Previous session ended at 15% context:**
 ```
 Session state saved to: .vibe/session-state.md
-To continue: /vibe continue
+To continue: /v-continue
 ```
 
 **New session:**
 ```
-User: /vibe continue
+User: /v-continue
 
 Claude:
 [SESSION RESTORED]

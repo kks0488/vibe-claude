@@ -13,7 +13,7 @@ Check if `~/.claude/.vibe-update-available.json` exists. If it does:
 Current: {currentVersion}
 Latest:  {latestVersion}
 
-Run `/update` to install the latest version.
+Run `/v-update` to install the latest version.
 ```
 
 ---
@@ -150,7 +150,7 @@ Some tasks naturally flow between skills:
 - **DO NOT** wait for explicit skill invocation - detect task type and activate
 - **DO** use your judgment - this guidance is advisory, not mandatory
 - **DO** combine skills when multiple apply
-- **EXPLICIT** slash commands (/v-turbo, /plan, /vibe) always take precedence
+- **EXPLICIT** slash commands (/v-turbo, /v-plan, /vibe) always take precedence
 
 ## NEVER STOP UNTIL PROVEN DONE
 
@@ -217,20 +217,20 @@ Use the Task tool to delegate to specialized agents:
 | Command | Delegates To | Description |
 |---------|--------------|-------------|
 | `/vibe <task>` | Multi-agent | Maximum power mode - parallel + escalation + infinite retry |
-| `/cancel-vibe` | - | Stop current vibe session, save progress |
 | `/v-turbo <task>` | Parallel agents | Maximum speed with concurrent execution |
-| `/analyze <target>` | v-analyst | Root cause analysis, debugging |
-| `/plan <task>` | v-planner | Strategic planning session |
-| `/review` | v-critic | Critical evaluation of code/plans |
-| `/update` | - | Check for and install vibe-claude updates |
-| `/vibe continue` | v-continue | Resume work from previous session |
+| `/v-plan <task>` | v-planner | Strategic planning session |
+| `/v-review` | v-critic | Critical evaluation of code/plans |
+| `/v-analyze <target>` | v-analyst | Root cause analysis, debugging |
+| `/v-continue` | v-continue | Resume work from previous session |
+| `/v-update` | - | Check for and install vibe-claude updates |
+| `/v-cancel` | - | Stop current vibe session, save progress |
 
 ## Planning Workflow
 
-1. Use `/plan` to start a planning session
+1. Use `/v-plan` to start a planning session
 2. v-planner will interview you about requirements
 3. Say "Create the plan" when ready
-4. Use `/review` to have v-critic evaluate the plan
+4. Use `/v-review` to have v-critic evaluate the plan
 5. Execute the plan with `/vibe`
 
 ## Orchestration Principles
@@ -470,7 +470,7 @@ All self-evolution is recorded:
 
 ## Continuation Command
 \`\`\`
-/vibe continue
+/v-continue
 \`\`\`
 ```
 
@@ -484,7 +484,7 @@ All self-evolution is recorded:
 │  Session state saved to: .vibe/session-state.md│
 │                                                 │
 │  To continue in new session:                    │
-│  /vibe continue                                 │
+│  /v-continue                                 │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```
