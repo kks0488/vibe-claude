@@ -30,11 +30,12 @@ Claude does not work directly - **delegates to appropriate agents**.
 |---------------|-------------|
 | "analyze", "bug", "why", "cause" | → v-analyst |
 | "search", "find", "where" | → v-finder |
-| "UI", "frontend", "component", "design" | → v-designer |
-| "plan", "design", "how should we" | → v-planner |
+| "UI", "frontend", "component", "design", "styling" | → v-designer |
+| "plan", "architecture", "strategy", "how should we" | → v-planner |
 | "review", "critique", "problems" | → v-critic |
 | "create", "modify", "implement" | → v-worker |
 | "document", "README" | → v-writer |
+| "continue", "resume", "pick up" | → v-continue |
 
 ### Delegation Flow
 
