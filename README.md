@@ -296,10 +296,35 @@ Never lose progress when context runs out:
 └─────────────────────────────────────────────────┘
 ```
 
-**Auto Session Continuation:**
-- Session state auto-saved to `.vibe/session-state.md`
-- Continuation command auto-generated
-- Resume with: `/vibe continue`
+**How to use `/vibe continue`:**
+
+```
+# Previous session ends at 15% context
+[CONTEXT WARNING: 15% REMAINING]
+Session state saved to: .vibe/session-state.md
+
+# Start new session
+User: /vibe continue
+
+# Claude automatically restores and continues
+[SESSION RESTORED]
+
+Previous Task: Implement login page
+
+Progress:
+✓ Created login form
+✓ Added JWT integration
+→ Password reset (60% complete)
+○ Email verification
+
+Resuming password reset implementation...
+```
+
+**Key features:**
+- Auto-save at 15% context remaining
+- One command to restore: `/vibe continue`
+- Full progress recovery with task status
+- Seamless continuation of long tasks
 
 No more losing work when sessions end!
 
