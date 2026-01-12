@@ -219,11 +219,9 @@ Use the Task tool to delegate to specialized agents:
 | `/vibe <task>` | Multi-agent | Maximum power mode - parallel + escalation + infinite retry |
 | `/cancel-vibe` | - | Stop current vibe session, save progress |
 | `/v-turbo <task>` | Parallel agents | Maximum speed with concurrent execution |
-| `/deepsearch <query>` | v-finder → v-analyst | Deep codebase search with analysis |
 | `/analyze <target>` | v-analyst | Root cause analysis, debugging |
-| `/plan <description>` | v-planner | Strategic planning session |
-| `/review [plan-path]` | v-critic | Critical evaluation of code/plans |
-| `/orchestrator <task>` | v-conductor | Auto-route to appropriate agents |
+| `/plan <task>` | v-planner | Strategic planning session |
+| `/review` | v-critic | Critical evaluation of code/plans |
 | `/update` | - | Check for and install vibe-claude updates |
 | `/vibe continue` | v-continue | Resume work from previous session |
 
