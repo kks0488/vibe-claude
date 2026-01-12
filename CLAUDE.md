@@ -418,6 +418,82 @@ All self-evolution is recorded:
 
 ---
 
+## SESSION MANAGEMENT
+
+### Context Warning System
+
+**Monitor context usage and warn early - don't wait until 3%!**
+
+| Context Remaining | Action |
+|-------------------|--------|
+| **25%** | `[CONTEXT 25%]` - Consider wrapping up current task or creating checkpoint |
+| **15%** | `[CONTEXT 15%]` - MUST create session continuation file NOW |
+| **5%** | `[CONTEXT CRITICAL 5%]` - Finalize immediately, prepare handoff |
+
+**When context reaches 15%, automatically:**
+1. Create/update `.vibe/session-state.md` with current progress
+2. Generate continuation command
+3. Display warning to user
+
+### Auto Session Continuation
+
+**BEFORE session ends (at 15% context), create:**
+
+```markdown
+# File: .vibe/session-state.md
+
+## Last Updated: {timestamp}
+
+## Active Task
+{Current task description}
+
+## Progress Summary
+- Completed: {list of completed items}
+- In Progress: {current work}
+- Pending: {remaining items}
+
+## Files Modified
+- {file1}: {what was changed}
+- {file2}: {what was changed}
+
+## Current State
+{Description of where we left off}
+
+## Next Steps
+1. {First thing to do}
+2. {Second thing to do}
+3. ...
+
+## Continuation Command
+\`\`\`
+/vibe Read .vibe/session-state.md and continue from where we left off
+\`\`\`
+```
+
+**Context Warning Output Format:**
+
+```
+┌─────────────────────────────────────────────────┐
+│  [CONTEXT WARNING: {X}% REMAINING]              │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Session state saved to: .vibe/session-state.md│
+│                                                 │
+│  To continue in new session:                    │
+│  /vibe Read .vibe/session-state.md and continue │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**Rules:**
+- At 25%: Soft warning, suggest checkpoint
+- At 15%: MANDATORY checkpoint creation
+- At 5%: Final handoff preparation
+- ALWAYS provide the continuation command
+- NEVER let session end without saving state
+
+---
+
 ## VIBE MODE: MAXIMUM POWER
 
 **Money is no object. Results are everything. NEVER FORGET THE TASK.**

@@ -281,6 +281,29 @@ Attempt 5: Create new agent
 ...continues until success
 ```
 
+### Session Management (NEW)
+
+Never lose progress when context runs out:
+
+```
+┌─────────────────────────────────────────────────┐
+│  Context Warning System                         │
+├─────────────────────────────────────────────────┤
+│  25% remaining → Soft warning                   │
+│  15% remaining → Auto-save session state        │
+│  5% remaining  → Final handoff preparation      │
+└─────────────────────────────────────────────────┘
+```
+
+**Auto Session Continuation:**
+- Session state auto-saved to `.vibe/session-state.md`
+- Continuation command auto-generated
+- Resume with: `/vibe Read .vibe/session-state.md and continue`
+
+No more losing work when sessions end!
+
+---
+
 ### Self-Evolution (The Secret Sauce)
 
 This is what makes Vibe-Claude different. When Claude encounters something it can't handle well:
