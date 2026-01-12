@@ -15,19 +15,19 @@ Resume work from where the previous session left off.
 
 ## How It Works
 
-1. **Find Session State**
-   - Check for `.vibe/session-state.md` in current project
-   - If not found, check for most recent `.vibe/work-*.md` file
+1. **Find Work File**
+   - Find most recent `.vibe/work-*.md` file (already updated in real-time)
+   - No separate session-state.md needed
 
 2. **Read and Analyze**
-   - Parse the session state file
-   - Identify completed tasks, in-progress work, and pending items
-   - Understand the current state and next steps
+   - Parse the work file
+   - Identify checked (✓) and unchecked ([ ]) items
+   - Find the next pending task
 
 3. **Resume Work**
    - Display summary of previous progress
    - Automatically continue from where left off
-   - Activate appropriate skills (vibe, v-turbo, etc.) as needed
+   - Activate vibe mode for remaining tasks
 
 ## Protocol
 
@@ -54,15 +54,14 @@ Continue working automatically
 
 ## File Search Order
 
-1. `.vibe/session-state.md` (primary - auto-saved state)
-2. `.vibe/work-*.md` (most recent by timestamp)
-3. Any `*-IMPLEMENTATION-PLAN.md` in `.vibe/`
+1. `.vibe/work-*.md` (most recent by timestamp)
+2. Any `*-IMPLEMENTATION-PLAN.md` in `.vibe/`
 
 ## Example Usage
 
-**Previous session ended at 15% context:**
+**Previous session showed warning:**
 ```
-Session state saved to: .vibe/session-state.md
+[CONTEXT WARNING: 15% REMAINING]
 To continue: /v-continue
 ```
 

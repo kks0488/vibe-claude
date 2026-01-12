@@ -291,40 +291,29 @@ Never lose progress when context runs out:
 │  Context Warning System                         │
 ├─────────────────────────────────────────────────┤
 │  25% remaining → Soft warning                   │
-│  15% remaining → Auto-save session state        │
-│  5% remaining  → Final handoff preparation      │
+│  15% remaining → Show /v-continue command       │
+│  5% remaining  → Final warning                  │
 └─────────────────────────────────────────────────┘
 ```
 
-**How to use `/v-continue`:**
+**How it works:**
+- Work file (`.vibe/work-*.md`) is updated in real-time
+- No extra save needed = No wasted tokens
+- `/v-continue` reads the latest work file
 
+**Usage:**
 ```
-# Previous session ends at 15% context
+# Previous session shows warning
 [CONTEXT WARNING: 15% REMAINING]
-Session state saved to: .vibe/session-state.md
+To continue: /v-continue
 
-# Start new session
+# New session
 User: /v-continue
 
-# Claude automatically restores and continues
+# Claude reads work file and continues
 [SESSION RESTORED]
-
-Previous Task: Implement login page
-
-Progress:
-✓ Created login form
-✓ Added JWT integration
-→ Password reset (60% complete)
-○ Email verification
-
-Resuming password reset implementation...
+Resuming from where we left off...
 ```
-
-**Key features:**
-- Auto-save at 15% context remaining
-- One command to restore: `/v-continue`
-- Full progress recovery with task status
-- Seamless continuation of long tasks
 
 No more losing work when sessions end!
 

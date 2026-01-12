@@ -430,49 +430,18 @@ All self-evolution is recorded:
 
 | Context Remaining | Action |
 |-------------------|--------|
-| **25%** | `[CONTEXT 25%]` - Consider wrapping up current task or creating checkpoint |
-| **15%** | `[CONTEXT 15%]` - MUST create session continuation file NOW |
-| **5%** | `[CONTEXT CRITICAL 5%]` - Finalize immediately, prepare handoff |
+| **25%** | `[CONTEXT 25%]` - Soft warning, wrap up current task |
+| **15%** | `[CONTEXT 15%]` - Show continuation command |
+| **5%** | `[CONTEXT CRITICAL 5%]` - Final warning |
 
-**When context reaches 15%, automatically:**
-1. Create/update `.vibe/session-state.md` with current progress
-2. Generate continuation command
-3. Display warning to user
+**No separate save needed!** Work file (`.vibe/work-*.md`) is already updated in real-time.
 
 ### Auto Session Continuation
 
-**BEFORE session ends (at 15% context), create:**
-
-```markdown
-# File: .vibe/session-state.md
-
-## Last Updated: {timestamp}
-
-## Active Task
-{Current task description}
-
-## Progress Summary
-- Completed: {list of completed items}
-- In Progress: {current work}
-- Pending: {remaining items}
-
-## Files Modified
-- {file1}: {what was changed}
-- {file2}: {what was changed}
-
-## Current State
-{Description of where we left off}
-
-## Next Steps
-1. {First thing to do}
-2. {Second thing to do}
-3. ...
-
-## Continuation Command
-\`\`\`
-/v-continue
-\`\`\`
-```
+**How `/v-continue` works:**
+1. Finds most recent `.vibe/work-*.md` file
+2. Reads current progress (checked/unchecked items)
+3. Resumes from where left off
 
 **Context Warning Output Format:**
 
@@ -481,20 +450,21 @@ All self-evolution is recorded:
 │  [CONTEXT WARNING: {X}% REMAINING]              │
 ├─────────────────────────────────────────────────┤
 │                                                 │
-│  Session state saved to: .vibe/session-state.md│
+│  Work file: .vibe/work-{timestamp}.md           │
+│  Progress is auto-saved.                        │
 │                                                 │
 │  To continue in new session:                    │
-│  /v-continue                                 │
+│  /v-continue                                    │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```
 
 **Rules:**
-- At 25%: Soft warning, suggest checkpoint
-- At 15%: MANDATORY checkpoint creation
-- At 5%: Final handoff preparation
-- ALWAYS provide the continuation command
-- NEVER let session end without saving state
+- Work file is updated after EVERY action (already happening)
+- At 25%: Soft warning
+- At 15%: Show `/v-continue` command
+- At 5%: Final warning
+- NO extra save = NO wasted tokens
 
 ---
 
