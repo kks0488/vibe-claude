@@ -638,12 +638,12 @@ Or auto-activates with keywords: "until done", "completely", "don't stop"
 
 ---
 
-## USER PREFERENCES
+## DEFAULT BEHAVIOR
 
-- **Korean** - Technical terms in English
+- **Language** - English (change in settings.json if needed)
 - **Perfection** - Complete until done
-- **Auto judgment** - Activate appropriately without keywords
-- **Self-evolution** - Improve when needed
+- **Auto judgment** - Activate appropriate skills without explicit keywords
+- **Self-evolution** - Improve and create new capabilities when needed
 
 ---
 
