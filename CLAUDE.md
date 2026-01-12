@@ -214,18 +214,18 @@ Use the Task tool to delegate to specialized agents:
 
 ## Slash Commands
 
-| Command | Description |
-|---------|-------------|
-| `/vibe <task>` | Maximum power mode - parallel + escalation + infinite retry |
-| `/cancel-vibe` | Cancel active vibe mode |
-| `/v-turbo <task>` | Maximum performance mode with parallel agents |
-| `/deepsearch <query>` | Thorough codebase search |
-| `/analyze <target>` | Deep analysis and investigation |
-| `/plan <description>` | Start planning session with v-planner |
-| `/review [plan-path]` | Review a plan with v-critic |
-| `/orchestrator <task>` | Complex multi-step task coordination |
-| `/update` | Check for and install updates |
-| `/vibe continue` | Resume work from previous session |
+| Command | Delegates To | Description |
+|---------|--------------|-------------|
+| `/vibe <task>` | Multi-agent | Maximum power mode - parallel + escalation + infinite retry |
+| `/cancel-vibe` | - | Stop current vibe session, save progress |
+| `/v-turbo <task>` | Parallel agents | Maximum speed with concurrent execution |
+| `/deepsearch <query>` | v-finder → v-analyst | Deep codebase search with analysis |
+| `/analyze <target>` | v-analyst | Root cause analysis, debugging |
+| `/plan <description>` | v-planner | Strategic planning session |
+| `/review [plan-path]` | v-critic | Critical evaluation of code/plans |
+| `/orchestrator <task>` | v-conductor | Auto-route to appropriate agents |
+| `/update` | - | Check for and install vibe-claude updates |
+| `/vibe continue` | v-continue | Resume work from previous session |
 
 ## Planning Workflow
 
@@ -523,12 +523,28 @@ All self-evolution is recorded:
 ## Phase 4: Verification
 - [ ] Tests  - [ ] Review  - [ ] Build
 
-## Phase 5: Polish (Optional)
+## Phase 5: Polish (Optional - see conditions below)
 - [ ] Refactor  - [ ] Docs  - [ ] Security
 
 ## Progress Log:
 ### [timestamp] {action} - {result} ✓
 ```
+
+### Phase 5 Conditions
+
+**DO Phase 5 when:**
+- New feature added (needs docs)
+- API/interface changed (needs update)
+- Complex logic added (needs comments)
+- Security-sensitive code (needs review)
+- Public-facing changes (needs polish)
+
+**SKIP Phase 5 when:**
+- Simple bug fix (one-liner)
+- Internal refactoring only
+- Config/env changes
+- Test-only changes
+- Typo/text fixes
 
 **THE ETERNAL WORK LOOP:**
 ```
@@ -536,7 +552,7 @@ All self-evolution is recorded:
 2. EXECUTE that item
 3. VERIFY it worked (run it, test it)
 4. UPDATE document → Check box ✓, add evidence
-5. REPEAT through ALL 5 phases (Phase 5 optional)
+5. REPEAT through ALL 5 phases (Phase 5 if conditions met)
 ```
 
 ### VIBE MODE PROTOCOL
