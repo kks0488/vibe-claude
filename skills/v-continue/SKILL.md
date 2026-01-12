@@ -1,9 +1,9 @@
 ---
-name: continue
+name: v-continue
 description: Resume work from previous session - reads session state and continues automatically
 ---
 
-# Continue Skill
+# V-Continue Skill
 
 Resume work from where the previous session left off.
 

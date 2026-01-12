@@ -206,6 +206,7 @@ Expensive, but effective.
 | `v-git` | Clean commits, git mastery |
 | `v-style` | Beautiful UI, design systems |
 | `v-evolve` | Self-improvement, creates new capabilities |
+| `v-continue` | Session restoration, resume work |
 
 ---
 

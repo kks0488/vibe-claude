@@ -82,8 +82,8 @@ Skills work in **three layers** that stack additively:
 
 | Layer | Skills | Purpose |
 |-------|--------|---------|
-| **Execution** | vibe, orchestrator, prometheus | HOW you work (pick primary) |
-| **Enhancement** | v-turbo, v-git, v-style | ADD capabilities |
+| **Execution** | vibe | HOW you work (main mode) |
+| **Enhancement** | v-turbo, v-git, v-style, v-continue | ADD capabilities |
 | **Guarantee** | vibe | ENSURE completion |
 
 **Combination Formula:** `[Execution] + [0-N Enhancements] + [Optional Guarantee]`
@@ -99,15 +99,17 @@ Use your judgment to detect task type and activate appropriate skills:
 | + multi-file changes | `vibe + v-git` | Changes span 3+ files |
 | UI/frontend work | `vibe + v-style` | Components, styling, interface |
 | Complex debugging | `v-analyst` → `vibe` | Unknown root cause → fix after diagnosis |
-| Strategic planning | `prometheus` | User needs plan before implementation |
-| Plan review | `review` | Evaluating/critiquing existing plans |
+| Strategic planning | `v-planner` | User needs plan before implementation |
+| Plan review | `v-critic` | Evaluating/critiquing existing plans |
 | Maximum performance | `v-turbo` (stacks with others) | Speed critical, parallel possible |
+| Session resume | `v-continue` | Continue from previous session |
 
 ### Skill Transitions
 
 Some tasks naturally flow between skills:
-- **prometheus** → **vibe**: After plan created, switch to execution
+- **v-planner** → **vibe**: After plan created, switch to execution
 - **v-analyst** → **vibe**: After diagnosis, switch to implementation
+- **v-continue** → **vibe**: After session restored, continue work
 
 ### What Each Skill Adds
 
@@ -117,9 +119,8 @@ Some tasks naturally flow between skills:
 | `v-turbo` | Parallel agents, background execution, never wait |
 | `v-git` | Atomic commits, style detection, history expertise |
 | `v-style` | Bold aesthetics, design sensibility |
-| `prometheus` | Interview user, create strategic plans |
-| `orchestrator` | Delegate-only mode, coordinate specialists |
-| `review` | Critical evaluation, find flaws |
+| `v-continue` | Session restoration, progress recovery |
+| `v-evolve` | Self-improvement, create new capabilities |
 
 ### Examples
 
@@ -131,13 +132,16 @@ Some tasks naturally flow between skills:
 → v-turbo + vibe + v-git
 
 "Plan authentication system, then implement it completely"
-→ prometheus (first) → vibe (after plan)
+→ v-planner (first) → vibe (after plan)
 
 "Fix this bug, don't stop until it's done"
 → vibe
 
 "Review my implementation plan"
-→ review
+→ v-critic
+
+"Continue from where we left off"
+→ v-continue → vibe
 ```
 
 ### Activation Guidance
