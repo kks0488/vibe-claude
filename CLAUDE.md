@@ -220,6 +220,7 @@ Use the Task tool to delegate to specialized agents:
 | `/review [plan-path]` | Review a plan with v-critic |
 | `/orchestrator <task>` | Complex multi-step task coordination |
 | `/update` | Check for and install updates |
+| `/vibe continue` | Resume work from previous session |
 
 ## Planning Workflow
 
@@ -466,7 +467,7 @@ All self-evolution is recorded:
 
 ## Continuation Command
 \`\`\`
-/vibe Read .vibe/session-state.md and continue from where we left off
+/vibe continue
 \`\`\`
 ```
 
@@ -480,7 +481,7 @@ All self-evolution is recorded:
 │  Session state saved to: .vibe/session-state.md│
 │                                                 │
 │  To continue in new session:                    │
-│  /vibe Read .vibe/session-state.md and continue │
+│  /vibe continue                                 │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```

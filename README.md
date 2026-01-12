@@ -298,7 +298,7 @@ Never lose progress when context runs out:
 **Auto Session Continuation:**
 - Session state auto-saved to `.vibe/session-state.md`
 - Continuation command auto-generated
-- Resume with: `/vibe Read .vibe/session-state.md and continue`
+- Resume with: `/vibe continue`
 
 No more losing work when sessions end!
 
@@ -350,6 +350,7 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 | `/review` | Review existing code/plan |
 | `/analyze <target>` | Deep analysis only |
 | `/update` | Check for updates |
+| `/vibe continue` | Resume from previous session |
 
 ---
 
