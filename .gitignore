@@ -7,6 +7,7 @@ credentials.json
 history.jsonl
 cache/
 paste-cache/
+image-cache/
 statsig/
 stats-cache.json
 
