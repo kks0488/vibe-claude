@@ -207,6 +207,7 @@ Expensive, but effective.
 | `v-style` | Beautiful UI, design systems |
 | `v-evolve` | Self-improvement, creates new capabilities |
 | `v-continue` | Session restoration, resume work |
+| `v-memory` | AI memory system with auto-recall & auto-save |
 
 ---
 
@@ -366,6 +367,64 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 | `/v-continue` | v-continue | Resume work from previous session |
 | `/v-update` | - | Check for and install vibe-claude updates |
 | `/v-cancel` | - | Stop current vibe session, save progress |
+| `/v-memory <cmd>` | v-memory | Save, search, recall knowledge |
+
+---
+
+## V-Memory System (NEW)
+
+AI가 자동으로 학습하고 기억하는 지식 시스템.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────┐
+│              V-MEMORY SYSTEM                     │
+├─────────────────────────────────────────────────┤
+│                                                  │
+│  AUTO-RECALL (작업 시작 시)                       │
+│  ├─ /vibe 실행 → 관련 메모리 자동 검색            │
+│  ├─ 에러 발생 → 유사 해결 기록 검색               │
+│  └─ 새 프로젝트 → 관련 지식 자동 로드             │
+│                                                  │
+│  AUTO-SAVE (작업 완료 시)                         │
+│  ├─ 실패 → 해결 → lesson 자동 저장               │
+│  ├─ 같은 패턴 3회+ → pattern 자동 저장           │
+│  ├─ 기술 선택 → decision 자동 저장               │
+│  └─ 새 도메인 → context 자동 저장                │
+│                                                  │
+│  DEDUP (저장 전)                                 │
+│  └─ memU check-similar로 중복 방지              │
+│                                                  │
+└─────────────────────────────────────────────────┘
+```
+
+### Memory Types
+
+| Type | Purpose | Auto-Trigger |
+|------|---------|--------------|
+| `lessons` | 실패 → 해결 기록 | 2회+ 시도 후 성공 |
+| `patterns` | 재사용 코드 패턴 | 같은 패턴 3회+ |
+| `decisions` | 아키텍처 결정 | 기술 선택 논의 |
+| `context` | 프로젝트 컨텍스트 | 새 도메인 학습 |
+
+### Storage
+
+```
+~/.claude/.vibe/memory/
+├── lessons/      # 실패 → 해결
+├── patterns/     # 코드 패턴
+├── decisions/    # 아키텍처 결정
+└── context/      # 프로젝트 지식
+```
+
+### memU Integration
+
+- **Semantic search**: 키워드가 아닌 의미로 검색
+- **Deduplication**: 유사도 85%+ 중복 방지
+- **Auto-sync**: 로컬 저장 시 memU에 동기화
+
+**The more you use it, the smarter it gets.**
 
 ---
 
@@ -380,15 +439,25 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 │   ├── v-worker.md
 │   ├── v-designer.md
 │   └── ...
-├── skills/            # 5 enhancement skills
+├── skills/            # 6 enhancement skills
 │   ├── v-turbo/
 │   ├── v-git/
 │   ├── v-style/
 │   ├── v-evolve/
-│   └── v-continue/
-└── commands/          # Slash commands
-    ├── vibe.md
-    └── ...
+│   ├── v-continue/
+│   └── v-memory/      # AI memory system (NEW)
+├── commands/          # Slash commands
+│   ├── vibe.md
+│   └── ...
+├── scripts/           # Helper scripts
+│   └── v-memory-helper.sh
+└── .vibe/
+    ├── memory/        # Knowledge storage (NEW)
+    │   ├── lessons/
+    │   ├── patterns/
+    │   ├── decisions/
+    │   └── context/
+    └── work-*.md      # Work tracking documents
 ```
 
 ---

@@ -4,6 +4,134 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 
 ---
 
+## 🏗️ Available Infrastructure
+
+**이 인프라는 모든 프로젝트에서 사용 가능합니다. 새 프로젝트 시작 시 반드시 확인하세요.**
+
+### 🔹 핵심 인프라
+
+#### Supabase (PostgreSQL + pgvector)
+- **Host**: localhost:54322
+- **Studio**: http://localhost:54323
+- **DSN**: `postgresql+psycopg://postgres:postgres@localhost:54322/postgres`
+- **용도**: 데이터베이스, 벡터 저장, 인증
+- **활성 테이블**: registry_projects, registry_ports, memory_items
+
+#### Redis
+- **Host**: localhost:6379
+- **URL**: `redis://localhost:6379`
+- **용도**: 캐싱, 세션 저장, 메시지 큐 (Celery)
+
+#### memU (AI Memory Service)
+- **API**: http://localhost:8100
+- **엔드포인트**:
+  - `POST /memorize` - 콘텐츠 저장
+  - `POST /retrieve` - 메모리 검색
+  - `POST /check-similar` - 중복 체크
+  - `GET /items` - 메모리 목록 (CRUD)
+  - `POST /items` - 메모리 생성
+  - `PUT /items/{id}` - 메모리 수정
+  - `DELETE /items/{id}` - 메모리 삭제
+- **용도**: 콘텐츠 중복 방지, 시맨틱 검색, 프로젝트 지식 저장
+- **연동 가이드**: `/home/kkaemo/projects/memu/docs/INTEGRATION.md`
+- **user_id**: 프로젝트명 사용 (예: `aionda`, `keywords500`)
+
+#### Coolify (Container Deployment)
+- **URL**: http://localhost:8000
+- **용도**: Docker 컨테이너 배포, 로컬 PaaS
+
+#### n8n (Workflow Automation)
+- **URL**: http://localhost:8081
+- **용도**: 워크플로우 자동화, 이벤트 기반 작업
+
+#### Qdrant (Vector Database)
+- **Host**: n8n 컨테이너 내부 (6333-6334)
+- **용도**: 벡터 검색 (memU 외 직접 벡터 검색 필요시)
+
+### 🔹 비즈니스 API (재사용 가능)
+
+#### PlayAuto DB API
+- **API**: http://localhost:8204/docs
+- **용도**: PlayAuto 주문/재고/클레임 데이터 (SSOT)
+- **재사용**: 모든 PlayAuto 관련 프로젝트에서 이 API 사용
+
+#### PlayAuto Inventory API
+- **API**: http://localhost:8210/docs
+- **용도**: 재고/상품 관리
+
+#### Naver Trend Intelligence
+- **API**: http://localhost:8012/docs
+- **용도**: 네이버 마켓 트렌드 데이터
+
+### 🔹 관리 도구
+
+#### Project Registry
+- **위치**: /home/kkaemo/project-registry
+- **용도**: 44개 프로젝트 추적, 포트 자동 할당, 문서 자동 갱신
+- **동기화**: `python /home/kkaemo/project-registry/scripts/sync_projects.py`
+
+#### ServiceDeck
+- **URL**: http://localhost:8765
+- **용도**: 서비스 상태 모니터링 대시보드
+
+### 📋 참조 문서
+- **인프라 가이드 (범용)**: `/home/kkaemo/projects/INFRASTRUCTURE.md` ⭐
+- **프로젝트 목록**: `/home/kkaemo/projects/PROJECTS_OVERVIEW.md`
+- **포트 맵**: `/home/kkaemo/projects/ROUTING.md`
+- **포트 정책**: 각 프로젝트의 `PROJECT_PORTS.md`
+
+### 🤖 다른 AI 도구용 설정
+- **Codex CLI**: `/home/kkaemo/projects/AGENTS.md`
+- **Cursor**: `/home/kkaemo/projects/.cursorrules`
+- **Copilot**: `/home/kkaemo/projects/.github/copilot-instructions.md`
+- **Windsurf**: `/home/kkaemo/projects/.windsurfrules`
+- **범용**: `/home/kkaemo/projects/.ai-context.md`
+
+---
+
+## 🔐 환경변수 관리 (꼬임 방지)
+
+**API 키 중복 저장 금지! 공통 환경변수는 SSOT에서 복사하세요.**
+
+### 공통 환경변수 파일 (SSOT)
+**위치**: `~/.config/claude-projects/global.env`
+
+이 파일에 모든 공통 API 키가 있습니다:
+- `GEMINI_API_KEY` - Google AI
+- `DEEPSEEK_API_KEY` - DeepSeek LLM
+- `OPENAI_API_KEY` - OpenAI (임베딩용)
+- `SUPABASE_*` - Supabase 연결 정보
+- `NAVER_CLIENT_ID/SECRET` - 네이버 API
+- `SLACK_BOT_TOKEN` - Slack 봇
+- `REDIS_URL` - Redis 연결
+
+### 새 프로젝트 시작 시
+
+```bash
+# 1. global.env에서 필요한 변수 복사
+cat ~/.config/claude-projects/global.env
+
+# 2. 프로젝트 .env에 붙여넣기 (필요한 것만)
+# 3. PORT는 Project Registry가 자동 할당 - PROJECT_PORTS.md 확인
+```
+
+### ⚠️ 주의사항
+- **API 키를 직접 입력하지 마세요** - global.env에서 복사
+- **PORT 하드코딩 금지** - Project Registry가 할당
+- **변수명 표준 준수**:
+  - `GEMINI_API_KEY` (O) / `GOOGLE_AI_KEY` (X)
+  - `NAVER_CLIENT_ID` (O) / `COMMERCE_CLIENT_ID` (X)
+  - `SUPABASE_SERVICE_KEY` (O) / `SUPABASE_KEY` (X, 모호함)
+
+### 포트 할당 규칙
+새 프로젝트는 직접 포트를 하드코딩하지 마세요. Project Registry가 자동 할당합니다:
+- Backend: 8200-8299
+- Frontend: 3200-3299
+- Dashboard: 8500-8599
+- Service: 9000-9999
+
+---
+
 ## UPDATE CHECK (Run at session start)
 
 Check if `~/.claude/.vibe-update-available.json` exists. If it does:
@@ -126,6 +254,7 @@ Some tasks naturally flow between skills:
 | `v-style` | Bold aesthetics, design sensibility |
 | `v-continue` | Session restoration, progress recovery |
 | `v-evolve` | Self-improvement, create new capabilities |
+| `v-memory` | Save, search, recall knowledge with memU integration |
 
 ### Examples
 
@@ -228,6 +357,7 @@ Use the Task tool to delegate to specialized agents:
 | `/v-continue` | v-continue | Resume work from previous session |
 | `/v-update` | - | Check for and install vibe-claude updates |
 | `/v-cancel` | - | Stop current vibe session, save progress |
+| `/v-memory <cmd>` | v-memory | Save, search, recall knowledge (memU) |
 
 ## Planning Workflow
 
@@ -397,11 +527,16 @@ Create now? (Proceed unless user objects)
 
 ### Failure Learning System
 
-When a task fails, record the lesson:
+When a task fails, record the lesson using v-memory:
+
+```bash
+# Use v-memory skill to save lessons
+/v-memory save lesson "Task tool 제한사항"
+```
+
+Or manually save to: `~/.claude/.vibe/memory/lessons/`
 
 ```markdown
-# File: ~/.claude/lessons-learned.md
-
 ## [Date] {What Failed}
 - Task: {What was attempted}
 - Failure: {What went wrong}
@@ -410,7 +545,10 @@ When a task fails, record the lesson:
 - Prevention: {How to avoid next time}
 ```
 
-**Before starting similar tasks, check lessons-learned.md first.**
+**Before starting similar tasks, search memory first:**
+```bash
+/v-memory search "관련 키워드"
+```
 
 ### Evolution Log
 
@@ -422,6 +560,121 @@ All self-evolution is recorded:
 - Reason: ...
 - Change: ...
 - Effect: ...
+```
+
+---
+
+## V-MEMORY SYSTEM
+
+AI가 학습하고 기억하는 지식 저장소. **자동으로 작동** - 사용자 개입 최소화.
+
+### Memory Location
+
+```
+~/.claude/.vibe/memory/
+├── lessons/      # 실패 → 해결 기록
+├── patterns/     # 재사용 코드 패턴
+├── decisions/    # 아키텍처 결정
+└── context/      # 프로젝트별 컨텍스트
+```
+
+### 🔴 AUTO-RECALL (자동 검색) - 필수!
+
+**작업 시작 전 반드시 관련 메모리 검색:**
+
+```
+작업 시작
+    ↓
+memU /retrieve 호출 (키워드: 작업 관련 용어)
+    ↓
+관련 메모리 있으면 → 참고하고 시작
+관련 메모리 없으면 → 그냥 시작
+```
+
+**자동 검색 트리거:**
+
+| 상황 | 검색 쿼리 |
+|-----|----------|
+| `/vibe` 실행 | 작업 설명에서 키워드 추출 |
+| 에러 발생 | 에러 메시지 + 파일명 |
+| 새 프로젝트 진입 | 프로젝트명 + 기술 스택 |
+| 아키텍처 결정 필요 | "decision" + 관련 기술 |
+
+### 🔴 AUTO-SAVE (자동 저장) - 필수!
+
+**사용자에게 묻지 않고 자동 저장:**
+
+| 트리거 | 저장 타입 | 조건 |
+|--------|----------|------|
+| 실패 → 해결 | lesson | 2회 이상 시도 후 성공 |
+| 반복 코드 | pattern | 같은 패턴 3회 이상 작성 |
+| 기술 선택 | decision | "왜 X를 선택?" 논의 발생 |
+| 프로젝트 학습 | context | 새 도메인 지식 습득 |
+
+**저장 프로세스:**
+
+```
+트리거 감지
+    ↓
+memU /check-similar (중복 확인)
+    ↓
+중복 없으면 → 자동 저장 + 알림
+중복 있으면 → 스킵 (조용히)
+```
+
+**저장 후 알림 형식:**
+
+```
+[V-MEMORY] 💾 Saved: lessons/2026-01-17-task-tool-limitation.md
+```
+
+### 🟡 Manual Commands (필요시만)
+
+```bash
+/v-memory save lesson "제목"     # 수동 저장
+/v-memory search "쿼리"          # 수동 검색
+/v-memory list [type]            # 목록 보기
+```
+
+### memU Integration
+
+- **API**: http://localhost:8100
+- **user_id**: `vibe-claude`
+- **자동 동기화**: 로컬 저장 시 memU에도 저장
+- **시맨틱 검색**: 키워드가 아닌 의미로 검색
+- **중복 방지**: 유사도 85% 이상이면 스킵
+
+### Helper Script
+
+```bash
+~/.claude/scripts/v-memory-helper.sh health    # 상태 확인
+~/.claude/scripts/v-memory-helper.sh search "쿼리"  # CLI 검색
+```
+
+### VIBE MODE + V-MEMORY 통합
+
+```
+/vibe 실행
+    ↓
+Phase 1 (Recon) 시작 전
+    ↓
+┌─────────────────────────────────────┐
+│  [V-MEMORY AUTO-RECALL]             │
+│  Searching: "작업 키워드"            │
+│  Found: 2 related memories          │
+│  → lessons/api-error-fix.md         │
+│  → patterns/retry-logic.md          │
+│  Applied to current task.           │
+└─────────────────────────────────────┘
+    ↓
+Phase 1~5 실행
+    ↓
+작업 완료 + 새 지식 발생 시
+    ↓
+┌─────────────────────────────────────┐
+│  [V-MEMORY AUTO-SAVE]               │
+│  💾 Saved: lessons/new-lesson.md    │
+└─────────────────────────────────────┘
 ```
 
 ---
