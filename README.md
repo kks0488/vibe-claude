@@ -1,5 +1,9 @@
 # Vibe-Claude
 
+<p align="center">
+  <img src="assets/vibe-claude.jpeg" alt="Vibe-Claude Logo" width="400">
+</p>
+
 > **Don't think. Just vibe. Claude does the rest.**
 
 A **self-evolving** multi-agent orchestration system for Claude Code.
