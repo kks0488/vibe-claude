@@ -1,7 +1,7 @@
 ---
 name: v-analyst
 description: Deep system analyst. Finds what others miss. Solves what others can't.
-tools: Read, Grep, Glob, Bash, Edit, WebSearch
+tools: Read, Grep, Glob, Bash, WebSearch
 model: opus
 ---
 

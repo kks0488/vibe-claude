@@ -135,32 +135,35 @@ Expensive, but effective.
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │  ┌─────────────────────────────────────┐    │
-│  │           AGENTS                     │    │
+│  │           AGENTS (13)                │    │
 │  │                                      │    │
 │  │  ┌──────────┐ ┌──────────┐          │    │
 │  │  │v-analyst │ │v-planner │ ← Opus   │    │
-│  │  │v-critic  │ │v-advisor │          │    │
-│  │  │v-conductor│            │          │    │
+│  │  │v-critic  │ │v-advisor │   (6)    │    │
+│  │  │v-conductor│ │v-tester │          │    │
 │  │  └──────────┘ └──────────┘          │    │
 │  │                                      │    │
 │  │  ┌──────────┐ ┌──────────┐          │    │
 │  │  │v-worker  │ │v-designer│ ← Sonnet │    │
-│  │  │v-researcher│ │v-vision │          │    │
+│  │  │v-researcher│ │v-vision │   (5)    │    │
+│  │  │v-api-tester│           │          │    │
 │  │  └──────────┘ └──────────┘          │    │
 │  │                                      │    │
 │  │  ┌──────────┐ ┌──────────┐          │    │
 │  │  │v-finder  │ │v-writer  │ ← Haiku  │    │
-│  │  └──────────┘ └──────────┘          │    │
+│  │  └──────────┘ └──────────┘   (2)    │    │
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │  ┌─────────────────────────────────────┐    │
-│  │           SKILLS                     │    │
-│  │  v-turbo  v-git  v-style  v-evolve  │    │
+│  │           SKILLS (8)                 │    │
+│  │  vibe v-turbo v-git v-style         │    │
+│  │  v-evolve v-continue v-memory       │    │
+│  │  v-compress                          │    │
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │      RESULT                                  │
 │         ↓                                    │
-│  Not perfect? → Retry automatically          │
+│  Not perfect? → Retry (up to 10x)           │
 │         ↓                                    │
 │      DONE                                    │
 └─────────────────────────────────────────────┘
@@ -179,6 +182,7 @@ Expensive, but effective.
 | `v-critic` | Ruthless code review, quality gates |
 | `v-advisor` | Risk analysis, hidden requirements |
 | `v-conductor` | Orchestration, agent routing |
+| `v-tester` | Test execution, edge case verification |
 
 ### Sonnet Tier (Execution)
 
@@ -188,6 +192,7 @@ Expensive, but effective.
 | `v-designer` | UI/UX, styling, components |
 | `v-researcher` | Documentation, codebase analysis |
 | `v-vision` | Screenshot/image analysis |
+| `v-api-tester` | API endpoint testing |
 
 ### Haiku Tier (Speed)
 
@@ -202,12 +207,14 @@ Expensive, but effective.
 
 | Skill | Purpose |
 |-------|---------|
+| `vibe` | Maximum power mode - parallel + retry + verification |
 | `v-turbo` | Parallel execution, maximum speed |
 | `v-git` | Clean commits, git mastery |
 | `v-style` | Beautiful UI, design systems |
 | `v-evolve` | Self-improvement, creates new capabilities |
 | `v-continue` | Session restoration, resume work |
 | `v-memory` | AI memory system with auto-recall & auto-save |
+| `v-compress` | Context compression, session extension |
 
 ---
 
@@ -272,15 +279,15 @@ This ensures **nothing is forgotten**. Each task is tracked with checkboxes and 
 - "I think it's done" → Must PROVE it
 - "Looks correct" → Must RUN it
 
-### Infinite Retry Engine
+### Retry Engine (Up to 10 Attempts)
 
 ```
 Attempt 1: Standard approach
 Attempt 2: Alternative method
 Attempt 3: Escalate to Opus
 Attempt 4: v-analyst deep dive
-Attempt 5: Create new agent
-...continues until success
+Attempt 5-10: Various approaches
+After 10: Ask user for guidance
 ```
 
 ### Session Management (NEW)
@@ -357,23 +364,23 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 
 ## Commands
 
-| Command | Delegates To | Description |
-|---------|--------------|-------------|
-| `/vibe <task>` | Multi-agent | Maximum power mode - parallel + escalation + infinite retry |
-| `/v-turbo <task>` | Parallel agents | Maximum speed with concurrent execution |
-| `/v-plan <task>` | v-planner | Strategic planning session |
-| `/v-review` | v-critic | Critical evaluation of code/plans |
-| `/v-analyze <target>` | v-analyst | Root cause analysis, debugging |
-| `/v-continue` | v-continue | Resume work from previous session |
-| `/v-update` | - | Check for and install vibe-claude updates |
-| `/v-cancel` | - | Stop current vibe session, save progress |
-| `/v-memory <cmd>` | v-memory | Save, search, recall knowledge |
+| Command | Description |
+|---------|-------------|
+| `/vibe <task>` | Maximum power mode - parallel + retry + verification |
+| `/v-turbo <task>` | Maximum speed with concurrent execution |
+| `/v-plan <task>` | Strategic planning session |
+| `/v-review` | Critical evaluation of code/plans |
+| `/v-continue` | Resume work from previous session |
+| `/v-memory <cmd>` | Save, search, recall knowledge |
+| `/v-compress` | Compress context, extend session |
+| `/cancel-vibe` | Stop current vibe session |
+| `/update` | Check for and install vibe-claude updates |
 
 ---
 
-## V-Memory System (NEW)
+## V-Memory System
 
-AI가 자동으로 학습하고 기억하는 지식 시스템.
+AI-powered knowledge system that learns and remembers automatically.
 
 ### How It Works
 
@@ -382,19 +389,19 @@ AI가 자동으로 학습하고 기억하는 지식 시스템.
 │              V-MEMORY SYSTEM                     │
 ├─────────────────────────────────────────────────┤
 │                                                  │
-│  AUTO-RECALL (작업 시작 시)                       │
-│  ├─ /vibe 실행 → 관련 메모리 자동 검색            │
-│  ├─ 에러 발생 → 유사 해결 기록 검색               │
-│  └─ 새 프로젝트 → 관련 지식 자동 로드             │
+│  AUTO-RECALL (on task start)                     │
+│  ├─ /vibe runs → auto-search related memories   │
+│  ├─ Error occurs → search similar solutions     │
+│  └─ New project → auto-load related knowledge   │
 │                                                  │
-│  AUTO-SAVE (작업 완료 시)                         │
-│  ├─ 실패 → 해결 → lesson 자동 저장               │
-│  ├─ 같은 패턴 3회+ → pattern 자동 저장           │
-│  ├─ 기술 선택 → decision 자동 저장               │
-│  └─ 새 도메인 → context 자동 저장                │
+│  AUTO-SAVE (on task complete)                    │
+│  ├─ Failure → Solution → auto-save lesson       │
+│  ├─ Same pattern 3x+ → auto-save pattern        │
+│  ├─ Tech choice → auto-save decision            │
+│  └─ New domain → auto-save context              │
 │                                                  │
-│  DEDUP (저장 전)                                 │
-│  └─ memU check-similar로 중복 방지              │
+│  DEDUP (before save)                             │
+│  └─ memU check-similar prevents duplicates      │
 │                                                  │
 └─────────────────────────────────────────────────┘
 ```
@@ -403,26 +410,26 @@ AI가 자동으로 학습하고 기억하는 지식 시스템.
 
 | Type | Purpose | Auto-Trigger |
 |------|---------|--------------|
-| `lessons` | 실패 → 해결 기록 | 2회+ 시도 후 성공 |
-| `patterns` | 재사용 코드 패턴 | 같은 패턴 3회+ |
-| `decisions` | 아키텍처 결정 | 기술 선택 논의 |
-| `context` | 프로젝트 컨텍스트 | 새 도메인 학습 |
+| `lessons` | Failure → Solution records | 2+ attempts then success |
+| `patterns` | Reusable code patterns | Same pattern 3x+ |
+| `decisions` | Architecture decisions | Tech choice discussions |
+| `context` | Project context | New domain learning |
 
 ### Storage
 
 ```
 ~/.claude/.vibe/memory/
-├── lessons/      # 실패 → 해결
-├── patterns/     # 코드 패턴
-├── decisions/    # 아키텍처 결정
-└── context/      # 프로젝트 지식
+├── lessons/      # Failure → Solution
+├── patterns/     # Code patterns
+├── decisions/    # Architecture decisions
+└── context/      # Project knowledge
 ```
 
-### memU Integration
+### memU Integration (Optional)
 
-- **Semantic search**: 키워드가 아닌 의미로 검색
-- **Deduplication**: 유사도 85%+ 중복 방지
-- **Auto-sync**: 로컬 저장 시 memU에 동기화
+- **Semantic search**: Search by meaning, not keywords
+- **Deduplication**: 85%+ similarity check prevents duplicates
+- **Auto-sync**: Local saves sync to memU automatically
 
 **The more you use it, the smarter it gets.**
 
@@ -433,26 +440,33 @@ AI가 자동으로 학습하고 기억하는 지식 시스템.
 ```
 ~/.claude/
 ├── CLAUDE.md          # Main system prompt
+├── DEFINITIONS.md     # Core definitions (SSOT)
 ├── README.md          # This file
-├── agents/            # 11 specialized agents
+├── LICENSE            # MIT License
+├── CONTRIBUTING.md    # Contribution guide
+├── agents/            # 13 specialized agents
 │   ├── v-analyst.md
 │   ├── v-worker.md
 │   ├── v-designer.md
 │   └── ...
-├── skills/            # 6 enhancement skills
+├── skills/            # 8 enhancement skills
+│   ├── vibe/
 │   ├── v-turbo/
 │   ├── v-git/
 │   ├── v-style/
 │   ├── v-evolve/
 │   ├── v-continue/
-│   └── v-memory/      # AI memory system (NEW)
+│   ├── v-memory/
+│   └── v-compress/
 ├── commands/          # Slash commands
 │   ├── vibe.md
 │   └── ...
 ├── scripts/           # Helper scripts
-│   └── v-memory-helper.sh
+│   ├── v-memory.sh
+│   ├── v-compress.sh
+│   └── v-continue.sh
 └── .vibe/
-    ├── memory/        # Knowledge storage (NEW)
+    ├── memory/        # Knowledge storage
     │   ├── lessons/
     │   ├── patterns/
     │   ├── decisions/

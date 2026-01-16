@@ -23,6 +23,7 @@ projects/
 
 # Backups
 *.bak
+.backup-*/
 
 # Plugins (separate management)
 plugins/
@@ -38,5 +39,12 @@ settings.json
 # Plans (local work)
 plans/
 .vibe-version.json
-evolution-log.md
 hooks/
+
+# Personal work data
+.vibe/work-*.md
+.vibe/phase*-detail.md
+lessons-learned.md
+
+# Promotional materials (keep separate)
+promo/
