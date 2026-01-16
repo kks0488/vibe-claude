@@ -431,6 +431,9 @@ AI-powered knowledge system that learns and remembers automatically.
 
 ### memU Integration (Optional)
 
+**Works without memU** - local file storage + grep search.
+
+With memU enabled:
 - **Semantic search**: Search by meaning, not keywords
 - **Deduplication**: 85%+ similarity check prevents duplicates
 - **Auto-sync**: Local saves sync to memU automatically
