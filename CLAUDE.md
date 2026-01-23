@@ -232,22 +232,36 @@ Phase 완료 시:
 
 ## VIBE MODE
 
+### Context Management (핵심)
+
+> **"컨텍스트 윈도우는 가장 중요한 자원"**
+
+```
+100% ████████████████████ Fresh
+ 60% ████████████░░░░░░░░ Caution → /v-compress
+ 40% ████████░░░░░░░░░░░░ WARNING → checkpoint
+ 20% ████░░░░░░░░░░░░░░░░ DANGER → /clear
+```
+
+**Two-Strike Rule**: 동일 실패 2회 → 컨텍스트 평가 → /v-compress 또는 /clear
+
 ### Dynamic Routing (Phase 0에서 자동 결정)
 
-| 복잡도 | 경로 | Phase 2 포함? |
-|--------|------|---------------|
-| TRIVIAL | P0→P3 (타이포, 설정) | ❌ |
-| SIMPLE | P0→P1→P3→P4 (단일 파일) | ❌ |
-| MODERATE | P0→P1→P3→P4 (다중 파일, 명확한 요구사항) | ❌ |
-| COMPLEX | P0→P1→P2→P3→P4→P5 (아키텍처 변경, 새 시스템) | ✅ |
+| 복잡도 | 경로 | Interview? | Planning? |
+|--------|------|------------|-----------|
+| TRIVIAL | P3 only | ❌ | ❌ |
+| SIMPLE | P1→P3→P4 | ❌ | ❌ |
+| MODERATE | P1→P3→P4 | Optional | ❌ |
+| COMPLEX | P0.5→P1→P2→P3→P4→P5 | ✅ | ✅ |
 
-> **Phase 0 (Routing)**: 모든 작업은 Phase 0에서 복잡도를 분류하고 최적 경로를 선택합니다.
+> **Phase 0.5 (Interview)**: COMPLEX 작업은 먼저 인터뷰로 요구사항 명확화
 
-**Phase 2 (Planning) 포함 기준:**
+**COMPLEX 기준:**
 - 3개 이상의 서비스/모듈에 영향
 - 새로운 아키텍처 패턴 도입
 - 데이터 모델 변경
 - 사용자가 명시적으로 계획 요청
+- 불명확하거나 모호한 요구사항
 
 ### Work Document
 
@@ -255,6 +269,15 @@ Phase 완료 시:
 # .vibe/work-{timestamp}.md
 
 ## Task: {user request}
+Complexity: {TRIVIAL|SIMPLE|MODERATE|COMPLEX}
+Route: {chosen phase sequence}
+
+## Context Status
+- Current: ~100%
+- Last checkpoint: -
+
+## Phase 0.5: Interview (COMPLEX only)
+- [ ] Scope  - [ ] Technical  - [ ] Edge cases  - [ ] Verification
 
 ## Phase 1: Recon
 - [ ] Analyze  - [ ] Find code  - [ ] Research
@@ -268,29 +291,32 @@ Phase 완료 시:
 ## Phase 5: Polish (COMPLEX만)
 - [ ] Refactoring  - [ ] Documentation  - [ ] Lessons saved
 
+## Checkpoints
+| Timestamp | Phase | Context | Notes |
+
 ## Progress Log:
 ### [timestamp] {action} - {result} ✓
 ```
 
-### Infinite Retry (with limits)
+### Retry Policy (Context-Aware)
 
 ```
 시도 1: Standard approach
     ↓ FAIL
 시도 2: Alternative method
-    ↓ FAIL
-시도 3: v-analyst deep dive
-    ↓ FAIL
-시도 4-10: 다양한 접근법 시도
-    ↓ FAIL
-시도 10 이후: 사용자에게 guidance 요청
+    ↓ FAIL (Two-Strike → 컨텍스트 체크)
+
+컨텍스트 > 60%: v-analyst deep dive
+컨텍스트 40-60%: /v-compress 후 재시도
+컨텍스트 < 40%: /clear + 새 접근법
 ```
 
 **탈출 조건:**
 - 최대 10회 재시도
 - 30분 타임아웃
 - 사용자가 `/cancel-vibe` 입력
-- 명확히 불가능한 작업으로 판단 시 → 사용자에게 보고
+- 컨텍스트 20% 미만 + 해결 불가
+- 명확히 불가능한 작업 → 사용자에게 보고
 
 ---
 
