@@ -387,6 +387,7 @@ When context is low or session ending:
 | `/compact` | Context getting full | Summarizes conversation |
 | `/v-compress` | Phase complete | Saves details, keeps summary |
 | `/v-continue` | Resume previous work | Loads last checkpoint |
+| `/cancel-vibe` | Emergency stop | Exit vibe mode |
 
 ### Context Budget Tracking (Work Document)
 
