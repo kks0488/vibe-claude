@@ -224,14 +224,48 @@ Expensive, but effective.
 
 ## How It Works
 
-### The 5-Phase System
+### Context Management (NEW in v2.1)
+
+> **"Context window is the most valuable resource."**
+
+```
+100% ████████████████████ Fresh session
+ 60% ████████████░░░░░░░░ Caution → /v-compress
+ 40% ████████░░░░░░░░░░░░ WARNING → checkpoint
+ 20% ████░░░░░░░░░░░░░░░░ DANGER → /clear
+```
+
+**Key Principles:**
+- **Subagent-First Exploration**: Delegate exploration to agents, protect main context
+- **Two-Strike Rule**: Same failure twice → evaluate context → compress or clear
+- **Checkpoint Protocol**: Save progress at phase completion and before risky operations
+
+### Dynamic Routing (NEW in v2.1)
+
+Not all tasks need all phases:
+
+| Complexity | Route | Interview? | Planning? |
+|------------|-------|------------|-----------|
+| TRIVIAL | P3 only | No | No |
+| SIMPLE | P1→P3→P4 | No | No |
+| MODERATE | P1→P3→P4 | Optional | No |
+| COMPLEX | P0.5→P1→P2→P3→P4→P5 | **YES** | **YES** |
+
+### The 5-Phase System (+ Phase 0.5)
 
 Every task follows this proven structure:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              THE 5-PHASE SYSTEM                 │
+│         THE 5-PHASE SYSTEM (+ Phase 0.5)        │
 ├─────────────────────────────────────────────────┤
+│                                                 │
+│  Phase 0.5: INTERVIEW (COMPLEX only) ← NEW      │
+│  └─ Ask clarifying questions before starting    │
+│     - Scope: What's included/excluded?          │
+│     - Technical: Patterns, constraints?         │
+│     - Edge cases: Error scenarios?              │
+│     - Verification: Success criteria?           │
 │                                                 │
 │  Phase 1: RECON (Parallel)                      │
 │  ├─ v-analyst: Analyze requirements             │
@@ -239,7 +273,7 @@ Every task follows this proven structure:
 │  ├─ v-researcher: Research best practices       │
 │  └─ v-advisor: Identify risks                   │
 │                                                 │
-│  Phase 2: PLANNING                              │
+│  Phase 2: PLANNING (COMPLEX only)               │
 │  └─ v-planner: Create comprehensive plan        │
 │                                                 │
 │  Phase 3: EXECUTION (Parallel)                  │
@@ -253,11 +287,10 @@ Every task follows this proven structure:
 │  └─ Tests: Automated checks                     │
 │  ALL THREE MUST APPROVE                         │
 │                                                 │
-│  Phase 5: POLISH (Optional)                     │
+│  Phase 5: POLISH (COMPLEX only)                 │
 │  ├─ Refactor if needed                          │
 │  ├─ Add docs/comments                           │
 │  └─ Security/performance check                  │
-│  SKIP if not needed                             │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -283,49 +316,96 @@ This ensures **nothing is forgotten**. Each task is tracked with checkboxes and 
 - "I think it's done" → Must PROVE it
 - "Looks correct" → Must RUN it
 
-### Retry Engine (Up to 10 Attempts)
+### Retry Engine (Context-Aware)
 
 ```
 Attempt 1: Standard approach
+    ↓ FAIL
 Attempt 2: Alternative method
-Attempt 3: Escalate to Opus
-Attempt 4: v-analyst deep dive
-Attempt 5-10: Various approaches
+    ↓ FAIL (Two-Strike → Context Check)
+
+Context > 60%: Continue with v-analyst deep dive
+Context 40-60%: /v-compress first, then retry
+Context < 40%: /clear + new approach
+
+Attempt 3-10: Various approaches (if context allows)
 After 10: Ask user for guidance
 ```
 
-### Session Management (NEW)
+**Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
+
+### Anti-Patterns (NEW in v2.1)
+
+Vibe-Claude now detects and avoids common failure patterns:
+
+| Pattern | Trigger | Action |
+|---------|---------|--------|
+| Kitchen Sink | 2+ unrelated tasks | Split sessions |
+| Death Spiral | 3+ failed fixes | /clear + root cause |
+| Infinite Exploration | 5+ files no plan | Stop + subagent |
+| Trust-Verify Gap | Claim without proof | Run verification |
+| Subagent Bypass | Direct exploration | Delegate now |
+
+### Batch Operations (NEW in v2.1)
+
+For large-scale changes (5+ files):
+
+```
+Orchestrator (main Claude):
+├─ Define transformation
+├─ List target files
+├─ Spawn workers (parallel)
+│   ├─ v-worker-1: files 1-5
+│   ├─ v-worker-2: files 6-10
+│   └─ v-worker-3: files 11-15
+├─ Collect results
+└─ Verify all succeeded
+```
+
+**Writer/Reviewer Pattern**: For quality-critical batch ops, v-worker writes → v-critic reviews → fix issues → final verification.
+
+### Session Management (Enhanced in v2.1)
 
 Never lose progress when context runs out:
 
-```
-┌─────────────────────────────────────────────────┐
-│  Context Warning System                         │
-├─────────────────────────────────────────────────┤
-│  25% remaining → Soft warning                   │
-│  15% remaining → Show /v-continue command       │
-│  5% remaining  → Final warning                  │
-└─────────────────────────────────────────────────┘
+| Session Type | Strategy |
+|--------------|----------|
+| Single-task | Complete → /clear |
+| Multi-task | Task → checkpoint → task |
+| Exploration | Subagent-heavy, summarize often |
+| Long-running | Aggressive checkpointing |
+
+**Checkpoint Protocol:**
+```markdown
+# .vibe/checkpoint-{timestamp}.md
+
+## Context
+- Task: {description}
+- Phase: {current phase}
+- Progress: {completed items}
+
+## State
+- Modified files: {list}
+- Pending tasks: {list}
+
+## Resume Instructions
+{Exact steps to continue}
 ```
 
-**How it works:**
-- Work file (`.vibe/work-*.md`) is updated in real-time
-- No extra save needed = No wasted tokens
-- `/v-continue` reads the latest work file
+**Session Handoff:**
+1. Create checkpoint
+2. `/v-compress` (save details to file)
+3. Summary message to user
+4. Next session: `/v-continue`
 
-**Usage:**
-```
-# Previous session shows warning
-[CONTEXT WARNING: 15% REMAINING]
-To continue: /v-continue
+**Command Reference:**
 
-# New session
-User: /v-continue
-
-# Claude reads work file and continues
-[SESSION RESTORED]
-Resuming from where we left off...
-```
+| Command | When to Use | Effect |
+|---------|-------------|--------|
+| `/clear` | Fresh start needed | Clears all context |
+| `/compact` | Context getting full | Summarizes conversation |
+| `/v-compress` | Phase complete | Saves details, keeps summary |
+| `/v-continue` | Resume previous work | Loads last checkpoint |
 
 No more losing work when sessions end!
 
