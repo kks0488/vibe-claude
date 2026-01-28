@@ -1,14 +1,32 @@
 # vibe-claude
 
-Multi-agent orchestration system for Claude Code with infinite retry, context management, and proven completion.
+**For beginners who want results, not methodology.**
 
-> Don't think. Just vibe. Claude evolves and completes it.
+Multi-agent orchestration system that lets you describe what you want and gets it done. No learning curve. No cost optimization. Just results.
+
+> Don't think. Just vibe. Claude handles the rest.
+
+## Why vibe-claude?
+
+**Other tools say:** "Learn TDD. Write plans first. Follow the methodology."
+
+**vibe-claude says:** "Just tell me what you want."
+
+```bash
+/vibe Add user authentication with Google OAuth
+```
+
+That's it. vibe-claude will:
+- Spawn Opus-tier agents (no cost cutting)
+- Plan, implement, test, and review automatically
+- Retry up to 10 times if something fails
+- Only finish when it can PROVE it works
 
 ## Features
 
-- **13 Specialized Agents** - Tiered by capability (Opus/Sonnet/Haiku)
-- **11 Powerful Skills** - vibe, v-turbo, v-plan, v-debug, v-review, and more
-- **Context Management** - Two-Strike Rule, automatic compression, session handoff
+- **Zero Learning Curve** - Just describe what you want in plain language
+- **Opus-First Philosophy** - Quality over cost. Always use the best model.
+- **13 Specialized Agents** - Automatically delegated based on task type
 - **Infinite Retry** - Up to 10 attempts with intelligent fallback strategies
 - **Proven Completion** - Evidence-based verification, no "should work" claims
 - **Session Continuity** - Checkpoint and resume across sessions
@@ -108,6 +126,22 @@ UNTIL IT'S DONE.
 ACTUALLY DONE.
 PROVEN DONE.
 ```
+
+## vibe-claude vs Other Tools
+
+| Aspect | Traditional Approach | vibe-claude |
+|--------|---------------------|-------------|
+| **Learning** | Learn TDD, debugging methodology, planning frameworks | Just talk |
+| **Cost** | Optimize for efficiency | Opus everything |
+| **Process** | Follow the methodology | Describe the outcome |
+| **Target** | Senior developers | Anyone with an idea |
+| **Philosophy** | "Do it right" | "Get it done" |
+
+## Who is this for?
+
+- **Beginners** who want to build without learning complex workflows
+- **Rapid prototypers** who need results fast
+- **Anyone** who values their time over API costs
 
 ## License
 
