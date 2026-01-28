@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code generated
+.claude/
+*.jsonl
+session-env/
+file-history/
+debug/
+cache/
+todos/
+shell-snapshots/
+telemetry/
+statsig/
+
+# Credentials
+.credentials.json
+*.key
+*.pem
+
+# Local dev
+.env.local
+.env.*.local
+.env
+PROJECT_PORTS.md

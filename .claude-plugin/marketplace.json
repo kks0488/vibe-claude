@@ -1,0 +1,20 @@
+{
+  "name": "vibe-claude-marketplace",
+  "description": "Marketplace for Vibe-Claude multi-agent orchestration system",
+  "owner": {
+    "name": "kkaemo",
+    "email": "kkaemo@github.com"
+  },
+  "plugins": [
+    {
+      "name": "vibe-claude",
+      "description": "Multi-agent orchestration system with infinite retry, context management, and proven completion",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "kkaemo",
+        "email": "kkaemo@github.com"
+      }
+    }
+  ]
+}
