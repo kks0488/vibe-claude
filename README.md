@@ -1,31 +1,47 @@
 # vibe-claude
 
-**For beginners who want results, not methodology.**
+**Claude Code Amplifier** - Performance-first guardrails for vanilla Claude Code.
 
-Multi-agent orchestration system that lets you describe what you want and gets it done. No learning curve. No cost optimization. Just results.
+We love Claude Code as it is. vibe-claude doesn't replace it - we amplify it. As Claude Code gets stronger, so does vibe-claude.
 
 > Don't think. Just vibe. Claude handles the rest.
 
+## Philosophy
+
+**We don't replace Claude Code. We amplify it.**
+
+```
+Claude Code (vanilla)     →  Powerful engine
+vibe-claude (guardrails)  →  Performance-first driving rules
+─────────────────────────────────────────────────
+Together                  →  Maximum output with minimal overhead
+```
+
+As Anthropic improves Claude Code, vibe-claude automatically benefits. We add:
+- Smart delegation patterns
+- Context management rules
+- Quality verification gates
+- Session continuity
+
+Nothing more. No bloat. No reinventing what Claude already does well.
+
 ## Why vibe-claude?
-
-**Other tools say:** "Learn TDD. Write plans first. Follow the methodology."
-
-**vibe-claude says:** "Just tell me what you want."
 
 ```bash
 /vibe Add user authentication with Google OAuth
 ```
 
 That's it. vibe-claude will:
-- Spawn Opus-tier agents (no cost cutting)
-- Plan, implement, test, and review automatically
-- Retry up to 10 times if something fails
+- Delegate to the right agents automatically
+- Manage context to extend your session
+- Retry intelligently if something fails
 - Only finish when it can PROVE it works
 
 ## Features
 
+- **Performance-First** - Use the best model for each task, no compromises
+- **Vanilla-Friendly** - Works with Claude Code, not against it
 - **Zero Learning Curve** - Just describe what you want in plain language
-- **Opus-First Philosophy** - Quality over cost. Always use the best model.
 - **13 Specialized Agents** - Automatically delegated based on task type
 - **Infinite Retry** - Up to 10 attempts with intelligent fallback strategies
 - **Proven Completion** - Evidence-based verification, no "should work" claims
@@ -127,21 +143,21 @@ ACTUALLY DONE.
 PROVEN DONE.
 ```
 
-## vibe-claude vs Other Tools
+## vibe-claude vs Other Approaches
 
-| Aspect | Traditional Approach | vibe-claude |
+| Aspect | Heavy Customization | vibe-claude |
 |--------|---------------------|-------------|
-| **Learning** | Learn TDD, debugging methodology, planning frameworks | Just talk |
-| **Cost** | Optimize for efficiency | Opus everything |
-| **Process** | Follow the methodology | Describe the outcome |
-| **Target** | Senior developers | Anyone with an idea |
-| **Philosophy** | "Do it right" | "Get it done" |
+| **Approach** | Replace Claude's behavior | Amplify Claude's strengths |
+| **Overhead** | High (custom logic) | Minimal (guardrails only) |
+| **Future-proof** | May conflict with updates | Benefits from Claude updates |
+| **Learning** | Learn the framework | Just describe what you want |
+| **Philosophy** | "Our way is better" | "Claude's way + guardrails" |
 
 ## Who is this for?
 
-- **Beginners** who want to build without learning complex workflows
-- **Rapid prototypers** who need results fast
-- **Anyone** who values their time over API costs
+- **Beginners** who want results without learning complex workflows
+- **Performance-focused** developers who want maximum output
+- **Claude Code fans** who want to amplify, not replace, vanilla behavior
 
 ## License
 
