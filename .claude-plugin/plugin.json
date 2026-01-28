@@ -1,13 +1,13 @@
 {
   "name": "vibe-claude",
   "description": "Multi-agent orchestration system with infinite retry, context management, and proven completion",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "kkaemo",
     "email": "kkaemo@github.com"
   },
-  "homepage": "https://github.com/kkaemo/vibe-claude",
-  "repository": "https://github.com/kkaemo/vibe-claude",
+  "homepage": "https://github.com/kks0488/vibe-claude",
+  "repository": "https://github.com/kks0488/vibe-claude",
   "license": "MIT",
   "keywords": [
     "multi-agent",
