@@ -57,6 +57,74 @@
 
 ---
 
+## Two-Strike Rule (Context-Aware Escalation)
+
+**정의**: 동일한 실패(같은 에러 시그니처/같은 막힘)가 2회 반복되면, 더 이상 “그대로 재시도”하지 않고 즉시 전술을 바꾼다.
+
+```
+Strike 1: 첫 실패 → 원인 가설 + 대안 시도
+Strike 2: 같은 실패 반복 → STOP → 컨텍스트 레벨 확인 → 에스컬레이션/압축/리셋
+```
+
+### “같은 실패” 판정 기준 (최소 요건)
+
+- 동일(또는 실질적으로 동일)한 에러 메시지/스택
+- 동일한 테스트/커맨드에서 재현
+- 동일한 설계/가정에 근거한 접근이 반복됨
+
+### Context Level 기반 조치
+
+| Context Level (체감) | 액션 | 에스컬레이션 |
+|----------------------|------|--------------|
+| > 60% | 계속 진행 가능 | v-analyst로 root cause 재분석 |
+| 40–60% | `/v-compress`로 체크포인트 후 재시도 | 필요 시 haiku→sonnet→opus 업그레이드 |
+| < 40% | `/clear`로 새 세션 + 학습 요약 파일로 재시작 | v-planner로 인터뷰/계획 재수립 |
+
+> 핵심: “두 번 같은 데서 미끄러지면, 방법을 바꿔라.” (증거/가정/컨텍스트를 재점검)
+
+---
+
+## Work Document (Minimal Template)
+
+`.vibe/work-{timestamp}.md` 는 최소한 아래 구조를 포함한다 (추가 섹션은 자유):
+
+```markdown
+# Task: {task}
+Started: {datetime}
+Status: in_progress
+
+## Routing
+- Complexity: {TRIVIAL|SIMPLE|MODERATE|COMPLEX}
+- Path: {P3 only | P1→P3→P4 | P0.5→P1→P2→P3→P4→P5}
+
+## Phases
+- [ ] Phase 0: Routing
+- [ ] Phase 0.5: Interview (COMPLEX only)
+- [ ] Phase 1: Recon
+- [ ] Phase 2: Planning (COMPLEX only)
+- [ ] Phase 3: Execution
+- [ ] Phase 4: Verification (Tribunal)
+- [ ] Phase 5: Polish (Optional)
+
+## Delegation Log
+| Time | From → To | Summary | Link/Evidence |
+|------|-----------|---------|---------------|
+
+## Error Log
+| # | What Failed | Evidence | Fix Attempt | Result |
+|---|------------|----------|-------------|--------|
+
+## Completion Evidence
+## COMPLETION PROOF
+✓ Executed: [actual command]
+  Output: [actual output]
+
+✓ Tests: [test command]
+  Result: [X passed, 0 failed]
+```
+
+---
+
 ## Memory Types
 
 | Type | Purpose | Auto-save Trigger |

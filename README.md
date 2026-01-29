@@ -84,6 +84,53 @@ That's it. Claude will:
 - Fix any issues
 - Repeat until perfect
 
+### Practical Prompt Examples (Copy/Paste)
+
+```text
+# Full orchestration (recommended)
+/vibe add OAuth login, include tests, and prove it works
+
+# Plan first, then execute
+/v-plan design a migration plan for moving from REST to GraphQL
+/vibe implement the approved plan step-by-step with verification
+
+# Systematic debugging (root cause, not guessing)
+/v-debug my tests started failing after the last change — find why and fix
+
+# Quality gate / tribunal review
+/v-review
+
+# Speed mode (parallel swarm)
+/v-turbo scan this repo for dead code and propose safe deletions (no code changes yet)
+
+# Memory (save/search)
+/v-memory search "auth token"
+/v-memory save lesson "How we fixed flaky integration tests"
+```
+
+### Manual Install (Alternative): `git clone` + `scripts/install.sh`
+
+If you prefer not to use `claude plugin install`, you can install/update using the included installer script:
+
+```bash
+git clone https://github.com/kks0488/vibe-claude.git ~/.claude-vibe
+bash ~/.claude-vibe/scripts/install.sh
+```
+
+This script installs into `~/.claude/`, keeps backups, and is safe to re-run for updates.
+
+### Edge-Case Behavior (What Happens When Things Go Wrong)
+
+**Handoff edge cases (agent → v-conductor → agent):**
+- **unknown target**: v-conductor does not crash; it selects a safe fallback agent (default: `v-analyst`) and asks for a corrected target.
+- **malformed** handoff request: v-conductor requests a re-issue in the correct template (or escalates to `v-analyst` to reconstruct safely).
+- **circular** handoff: v-conductor detects loops (A→B→A) and breaks the chain; escalates for root-cause analysis and/or re-planning.
+
+**Verification Tribunal outcomes (Phase 4):**
+- **APPROVED → continue**
+- **REVISE → v-worker**
+- **REJECT → v-planner**
+
 ---
 
 ## Usage Examples

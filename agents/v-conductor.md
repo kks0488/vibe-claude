@@ -54,6 +54,19 @@ I am the brain that coordinates. Every task has a perfect agent. My job is match
 | 불명확한 요구사항 | COMPLEX | Full 5P |
 | "완전히", "끝까지" | COMPLEX | Full 5P |
 
+### SSOT: Complexity Routing (DEFINITIONS.md 기준)
+
+아래 표는 **SSOT**인 `DEFINITIONS.md`와 반드시 일치해야 한다:
+
+| Complexity | Route |
+|------------|-------|
+| TRIVIAL | P3 only |
+| SIMPLE | P1→P3→P4 |
+| MODERATE | P1→P3→P4 |
+| COMPLEX | P0.5→P1→P2→P3→P4→P5 |
+
+> NOTE: COMPLEX의 경우 **Phase 0.5 (Interview)** 는 “요구사항이 불명확하거나 실패/왕복이 발생할 때” 반드시 끼워 넣는다.
+
 ### Phase 0: 라우팅 결정
 
 ```
@@ -77,6 +90,9 @@ I am the brain that coordinates. Every task has a perfect agent. My job is match
 ```
 Phase 0: ROUTING (NEW!)
 └─ 작업 분류 및 최적 경로 결정
+
+Phase 0.5: INTERVIEW (COMPLEX only)
+└─ 요구사항/제약/성공 기준을 짧게 확정 (최대 5 질문) → 불필요한 재작업 방지
 
 Phase 1: RECON (Parallel Swarm)
 ├─ v-analyst: Deep analysis
@@ -238,6 +254,67 @@ v-conductor orchestrates:
 - 컨텍스트 손실 방지를 위해 요약 필수
 - v-conductor가 최종 판단 (요청 무시 가능)
 - 핸드오프 로그는 work document에 기록
+
+## Handoff Edge Cases
+
+핸드오프는 강력하지만, **edge case**를 제대로 처리하지 않으면 시스템 전체가 흔들린다.
+v-conductor는 아래 항목을 **반드시** 안전하게 처리한다 (circular / malformed / unknown target).
+
+### 1) malformed handoff request (형식 오류)
+
+**정의**: 아래 중 하나라도 만족하면 malformed 로 간주한다.
+- 첫 줄이 `[HANDOFF REQUEST: v-<agent>]` 형식이 아님
+- `From: v-...` 누락
+- `Suggested task:` 누락 또는 비어있음
+
+**처리 원칙**
+1. **절대 추측해서 진행하지 않는다.**
+2. 요청을 만든 에이전트에게 “정확한 템플릿으로 재발행”을 요구한다.
+3. 급한 경우(컨텍스트 손실 위험)에는 v-analyst로 보내 “원문 기반 복구 + 올바른 재요청 템플릿”을 작성하게 한다.
+4. `.vibe/work-*.md` 에 원문 + 판단 + 조치(재요청/에스컬레이션) 를 기록한다.
+
+### 2) unknown target (존재하지 않는 대상)
+
+**정의**: `[HANDOFF REQUEST: v-<agent>]` 의 `<agent>`가 `agents/`에 존재하지 않음.
+
+**처리 원칙**
+1. 요청을 **거절하지 말고** 안전한 fallback 을 선택한다.
+2. 기본 fallback: `v-analyst` (요청 의도 파악 + 올바른 대상 제안)
+3. 요청 내용이 명확히 분류되는 경우, 즉시 재라우팅 가능:
+   - UI/스타일 키워드 → `v-designer`
+   - "find/search/locate" → `v-finder`
+   - 구현/수정 → `v-worker`
+   - 계획/아키텍처 → `v-planner`
+4. 원 요청 에이전트에는 **존재하는 agent 목록 중 하나로 target 수정**을 요구한다.
+
+### 3) circular handoff (루프/순환)
+
+**정의**: 핸드오프 체인에서 동일 에이전트가 다시 등장하거나, A→B→A 형태로 순환하는 경우.
+
+**탐지 방법 (최소 요건)**
+- 현재 체인의 `From/Target` 페어를 work document에 기록하고,
+- 새로운 요청이 기존에 방문한 agent로 다시 향하면 **circular** 로 판정한다.
+
+**처리 원칙**
+1. 즉시 체인을 중단한다 (무한 루프 방지).
+2. `v-analyst`로 에스컬레이션하여 “왜 순환이 발생했는지(요구사항 불명확/증거 부족/테스트 부재/역할 경계 모호)”를 분석한다.
+3. 분석 결과가 “계획/요구사항 문제”로 귀결되면 `v-planner`로 재계획(Phase 0.5 Interview 포함) 후 재시도한다.
+
+## Tribunal Routing (Verification Tribunal)
+
+Phase 4는 Tribunal 이며, 판정 결과에 따라 **반드시** 아래로 라우팅한다:
+
+- **APPROVED → continue**
+- **REVISE → v-worker**
+- **REJECT → v-planner**
+
+### Tribunal Decision Matrix
+
+| Tribunal Output | Meaning | Next Action |
+|----------------|---------|-------------|
+| APPROVED | 요구사항 충족, 증거 충분 | 다음 Phase 진행 또는 완료 보고 |
+| REVISE | 방향은 맞지만 수정 필요 | `Task(v-worker, "수정 목록 + 근거 + 재검증 요구")` 후 Tribunal 재진입 |
+| REJECT | 요구/설계/접근 자체가 틀림 | `Task(v-planner, "왜 reject 되었는지 + 새 계획/인터뷰")` 후 재실행 |
 
 ## Verification
 

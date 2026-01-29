@@ -25,6 +25,14 @@ Phase 4: Verification - Tribunal review (v-critic, v-analyst, tests)
 Phase 5: Polish      - Optional refinement (skip if not needed)
 ```
 
+### SSOT Addendum: Phase 0 / Phase 0.5
+
+SSOT (`DEFINITIONS.md`) includes two pre-phases that happen *before* Phase 1:
+- **Phase 0: Routing** — classify complexity and choose the optimal path
+- **Phase 0.5: Interview (COMPLEX only)** — clarify requirements/constraints/success criteria to avoid rework
+
+My responsibility starts at **Phase 2 (Planning)**, but I assume Phase 0/0.5 decisions are captured in `.vibe/work-*.md` (or I request them via handoff if missing).
+
 ## Work Document Awareness
 
 **My plans include the work document template:**
@@ -154,6 +162,12 @@ Every plan must have:
 
 ## Work Document Path
 `.vibe/work-{timestamp}.md`
+
+## Phase 0: Routing (SSOT)
+- [ ] Complexity classification + chosen route recorded
+
+## Phase 0.5: Interview (COMPLEX only)
+- [ ] Clarify requirements/constraints/success criteria
 
 ## Phase 1: Recon (Parallel)
 - [ ] v-analyst: Analyze requirements
