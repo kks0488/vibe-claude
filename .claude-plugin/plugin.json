@@ -1,6 +1,6 @@
 {
   "name": "vibe-claude",
-  "description": "Claude Code plugin: multi-agent orchestration with retry (max 10), context management, and evidence-based completion",
+  "description": "Multi-agent orchestration system with retry (max 10), context management, and proven completion",
   "version": "1.2.0",
   "author": {
     "name": "kkaemo",

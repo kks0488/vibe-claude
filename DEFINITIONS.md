@@ -50,35 +50,10 @@
 
 - **최대 재시도**: 10회
 - **타임아웃**: 30분
-- **Two-Strike Rule**: 동일 실패 2회 → 컨텍스트 잔량 확인
-  - \>60%: v-analyst deep dive
-  - 40-60%: /v-compress 후 재시도
-  - <40%: /clear + 새 접근법
 - **탈출 조건**:
   - 사용자 `/cancel-vibe`
   - 명확히 불가능한 작업
   - 10회 실패 후 → 사용자에게 guidance 요청
-
----
-
-## Handoff Request Protocol (Agents → v-conductor)
-
-Agents cannot invoke other agents. They emit a handoff request; `v-conductor` routes it.
-
-```text
-[HANDOFF REQUEST: v-<agent>]
-From: v-<agent>
-Reason: <why>
-Context:
-- File/Endpoint/Image: path:line (as applicable)
-- Evidence: <command output / repro>
-Suggested task: <what to do>
-```
-
-Edge-case rules:
-- Missing/unknown target agent → fallback to `v-analyst` + log `unknown handoff target`
-- Malformed handoff (missing From/Reason/Suggested task) → ask re-emit once; then fallback to `v-analyst`
-- Circular handoff (same `From → Target` and `Reason` repeats) → stop and root-cause analyze (`v-analyst`); if repeated, ask user to narrow scope/provide missing info
 
 ---
 
@@ -90,32 +65,6 @@ Edge-case rules:
 | pattern | 재사용 가능한 코드 | 수동 저장 |
 | decision | 아키텍처 결정 | 중요 논의 후 |
 | context | 도메인 지식 | 수동 저장 |
-
----
-
----
-
-## Work Document Template
-
-```markdown
-# .vibe/work-{timestamp}.md
-
-## Task: {user request}
-Complexity: {TRIVIAL|SIMPLE|MODERATE|COMPLEX}
-Route: {chosen phase sequence}
-
-## Phase 1: Recon
-- [ ] Findings
-
-## Phase 3: Execution
-- [ ] Task list
-
-## Phase 4: Verification
-- [ ] Tests / Review
-
-## Progress Log
-### [timestamp] {action} - {result}
-```
 
 ---
 

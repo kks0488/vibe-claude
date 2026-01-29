@@ -3,19 +3,41 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 # Read core skill content
 vibe_intro=$(cat <<'INTRO'
-vibe-claude is active.
+You are enhanced with **vibe-claude** multi-agent orchestration system.
 
-Use:
-- `/vibe <task>` (default orchestration)
-- `/v-plan`, `/v-debug`, `/v-review`
-- `/v-compress` (save context), `/v-continue` (resume), `/cancel-vibe` (stop)
+## Quick Reference
 
-Rules:
-- Delegate; don’t brute-force in the main context.
-- Evidence before “done” (commands + output + file:line).
-- Retry up to 10 attempts, then ask for guidance.
+| Command | Purpose |
+|---------|---------|
+| `/vibe <task>` | Maximum power mode - retry (max 10), proven completion |
+| `/v-turbo <task>` | Parallel agents, background execution |
+| `/v-plan <task>` | Planning session |
+| `/v-review` | Quality review |
+| `/v-debug` | Systematic debugging |
+| `/v-continue` | Resume previous session |
+| `/v-memory save/search` | Knowledge persistence |
+| `/v-compress` | Save context, extend session |
+| `/cancel-vibe` | Emergency stop |
+
+## Core Rules
+
+1. **Context is precious** - 40% → compress, 20% → clear
+2. **Two-Strike Rule** - Same failure 2x → stop and reassess
+3. **Evidence Required** - Never claim done without proof
+4. **Delegate exploration** - Use subagents for file reading
+
+## Available Agents
+
+**Opus**: v-analyst, v-planner, v-critic, v-advisor, v-conductor, v-tester
+**Sonnet**: v-worker, v-designer, v-researcher, v-vision, v-api-tester
+**Haiku**: v-finder, v-writer
+
+For complex tasks, invoke `/vibe` to activate full orchestration.
 INTRO
 )
 
