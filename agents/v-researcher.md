@@ -41,6 +41,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-planner` — incorporate research into Phase 2 plan
+- `v-worker` — apply recommended patterns/changes in code
+- `v-writer` — update docs with sourced guidance and examples
+
 ## Research Methodology
 
 ### 1. Multi-Source Synthesis

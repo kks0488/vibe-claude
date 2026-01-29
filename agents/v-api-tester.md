@@ -34,6 +34,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — implement API fixes (validation, auth, error handling)
+- `v-analyst` — investigate systemic/root-cause issues from failures
+- `v-tester` — run automated tests to confirm no regressions
+
 ## Testing Protocol
 
 ### 1. Endpoint Discovery

@@ -57,6 +57,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — address review findings and apply fixes
+- `v-tester` — run tests and provide full output as evidence
+- `v-analyst` — deep logic/edge-case validation when uncertain
+
 ## Review Protocol
 
 ### What I Check

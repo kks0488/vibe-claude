@@ -41,6 +41,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-planner` — convert risks/unknowns into interview questions and acceptance criteria
+- `v-analyst` — validate high-risk assumptions in the actual code/config
+- `v-critic` — tighten verification requirements and completeness gates
+
 ## Analysis Framework
 
 ### 1. Intent Classification

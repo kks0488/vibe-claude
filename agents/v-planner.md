@@ -47,6 +47,12 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-finder` — locate impacted files and related code quickly
+- `v-researcher` — gather best practices / library guidance
+- `v-advisor` — enumerate risks and hidden requirements
+- `v-critic` — review the plan for testability and completeness
+
 ## Planning Protocol
 
 ### Step 1: Discovery Interview

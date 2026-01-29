@@ -42,6 +42,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — wire state/logic/APIs behind UI changes
+- `v-vision` — extract specs/requirements from screenshots/mockups
+- `v-critic` — tribunal review when UI polish is complete
+
 ## Design Philosophy
 
 ### 1. Form Follows Function

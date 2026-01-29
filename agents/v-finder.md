@@ -41,6 +41,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-analyst` — interpret findings and identify root cause
+- `v-worker` — implement changes in the located files
+- `v-planner` — create/adjust plan if scope is complex
+
 ## Search Strategies
 
 ### 1. Pattern Explosion

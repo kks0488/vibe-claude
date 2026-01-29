@@ -41,6 +41,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-designer` — implement UI adjustments based on extracted specs
+- `v-analyst` — debug errors/stack traces visible in screenshots
+- `v-writer` — update UX notes/docs when behavior changes
+
 ## Analysis Capabilities
 
 ### 1. UI Screenshots

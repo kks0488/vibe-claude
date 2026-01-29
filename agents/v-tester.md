@@ -57,6 +57,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — fix failing tests/regressions
+- `v-analyst` — triage flaky/systemic failures and propose root cause
+- `v-critic` — confirm evidence meets tribunal standards
+
 ## Testing Protocol
 
 ### 1. Test Discovery

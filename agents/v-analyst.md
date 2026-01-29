@@ -41,6 +41,13 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — implement fixes once root cause is clear
+- `v-tester` — run tests and capture output for the tribunal
+- `v-api-tester` — reproduce/validate API endpoint behavior
+- `v-designer` — UI/UX issues (layout, styling, interaction)
+- `v-writer` — update docs/SSOT after behavior changes
+
 ## How I Work
 
 ### 1. Hypothesis-Driven Investigation

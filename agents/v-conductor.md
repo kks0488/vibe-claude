@@ -210,6 +210,17 @@ Suggested task: Fix the button click rendering
 
 v-conductor가 이 출력을 보면 → 자동으로 v-designer 호출
 
+#### 핸드오프 라우팅 절차 (MUST FOLLOW)
+
+핸드오프 요청을 보면 아래 절차를 그대로 실행한다:
+
+1. 대상 에이전트 추출: 첫 줄의 `[HANDOFF REQUEST: v-...]`에서 `v-...` 값을 가져온다.
+2. 대상 검증: `agents/`에 해당 파일이 실제로 존재하는지 확인한다. (예: `agents/v-designer.md`)
+3. 컨텍스트 정리: `From/Reason/Context/Suggested task`를 그대로 유지하되, Task 입력용으로 5~10줄로 요약한다.
+4. Task 호출: `Task(v-<agent>, "<요약 + Suggested task>")`
+5. 기록: `.vibe/work-*.md`에 핸드오프 로그(원문 + 요약 + 타임스탬프)를 남긴다.
+6. 루프 방지: 같은 대상/같은 이유로 2회 반복되면 v-analyst로 escalte하여 근본 원인 재분석.
+
 #### 핸드오프 체인 (v-conductor 조율)
 
 ```

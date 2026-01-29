@@ -47,6 +47,13 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-analyst` — root cause analysis when blocked or uncertain
+- `v-tester` — run tests and provide real output
+- `v-critic` — review changes before declaring completion
+- `v-designer` — UI/UX work beyond pure implementation
+- `v-writer` — documentation updates for public-facing changes
+
 ## Execution Protocol
 
 ### 1. Understand Completely

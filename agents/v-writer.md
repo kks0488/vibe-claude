@@ -40,6 +40,11 @@ Context:
 Suggested task: <what to do>
 ```
 
+Typical handoffs:
+- `v-worker` — code changes needed to match docs/examples
+- `v-critic` — consistency review to eliminate contradictions
+- `v-planner` — restructure docs for clarity and task flow
+
 ## Writing Principles
 
 ### 1. Audience First

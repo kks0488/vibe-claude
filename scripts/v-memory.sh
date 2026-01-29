@@ -3,6 +3,9 @@
 # Usage: v-memory-helper.sh <command> [args]
 # Enhanced version with local file storage and fallback
 
+set -euo pipefail
+IFS=$'\n\t'
+
 MEMU_API="${MEMU_API:-http://localhost:8100}"
 MEMU_USER_ID="${MEMU_USER_ID:-vibe-claude}"
 MEMORY_DIR="$HOME/.claude/.vibe/memory"
@@ -13,6 +16,16 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+require_cmd() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo -e "${RED}ERROR: Missing required dependency: ${cmd}${NC}" >&2
+        exit 1
+    fi
+}
+
+require_cmd curl
 
 # Ensure directories exist
 ensure_dirs() {
@@ -32,6 +45,8 @@ escape_for_json() {
             $'\n') output+='\n' ;;
             $'\r') output+='\r' ;;
             $'\t') output+='\t' ;;
+            $'\b') output+='\b' ;;
+            $'\f') output+='\f' ;;
             *) output+="$char" ;;
         esac
     done
@@ -40,7 +55,7 @@ escape_for_json() {
 
 # Check if memU is available
 is_memu_available() {
-    curl -s --connect-timeout 2 "$MEMU_API/health" > /dev/null 2>&1
+    curl -s --connect-timeout 2 "$MEMU_API/health" > /dev/null 2>&1 || return 1
 }
 
 # Save to local file
@@ -52,6 +67,7 @@ save_local() {
     local slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 
     ensure_dirs
+    [ -z "$slug" ] && slug="untitled"
 
     # Map type to directory
     local dir_type
@@ -63,6 +79,7 @@ save_local() {
         *) dir_type="$type" ;;
     esac
 
+    mkdir -p "$MEMORY_DIR/$dir_type"
     local filename="$MEMORY_DIR/$dir_type/${date}-${slug}.md"
 
     cat > "$filename" << EOF
@@ -84,7 +101,7 @@ memorize() {
     local content="$1"
     local metadata="$2"
 
-    curl -s -X POST "$MEMU_API/memorize" \
+    curl -sS -X POST "$MEMU_API/memorize" \
         -H "Content-Type: application/json" \
         -d "{
             \"content\": \"$(escape_for_json "$content")\",
@@ -97,7 +114,7 @@ retrieve() {
     local query="$1"
     local limit="${2:-5}"
 
-    curl -s -X POST "$MEMU_API/retrieve" \
+    curl -sS -X POST "$MEMU_API/retrieve" \
         -H "Content-Type: application/json" \
         -d "{
             \"query\": \"$(escape_for_json "$query")\",
@@ -110,7 +127,7 @@ check_similar() {
     local content="$1"
     local threshold="${2:-0.85}"
 
-    curl -s -X POST "$MEMU_API/check-similar" \
+    curl -sS -X POST "$MEMU_API/check-similar" \
         -H "Content-Type: application/json" \
         -d "{
             \"content\": \"$(escape_for_json "$content")\",
@@ -123,20 +140,21 @@ list_items() {
     local type="$1"
 
     if [ -z "$type" ]; then
-        curl -s "$MEMU_API/items?user_id=$MEMU_USER_ID"
+        curl -sS "$MEMU_API/items?user_id=$MEMU_USER_ID"
     else
-        curl -s "$MEMU_API/items?user_id=$MEMU_USER_ID&metadata.type=$type"
+        curl -sS "$MEMU_API/items?user_id=$MEMU_USER_ID&metadata.type=$type"
     fi
 }
 
 delete_item() {
     local id="$1"
-    curl -s -X DELETE "$MEMU_API/items/$id"
+    curl -sS -X DELETE "$MEMU_API/items/$id"
 }
 
 # Health check
 health() {
-    local response=$(curl -s --connect-timeout 2 "$MEMU_API/health" 2>/dev/null)
+    local response
+    response=$(curl -sS --connect-timeout 2 "$MEMU_API/health" 2>/dev/null || true)
     if echo "$response" | grep -q "ok"; then
         echo -e "${GREEN}✓ memU is running at $MEMU_API${NC}"
         return 0
@@ -165,8 +183,14 @@ save() {
     # Try to sync to memU
     if is_memu_available; then
         local metadata="{\"title\":\"$(escape_for_json "$title")\",\"type\":\"$(escape_for_json "$type")\",\"source\":\"vibe-claude\"}"
-        local result=$(memorize "$content" "$metadata")
-        if echo "$result" | grep -q "success"; then
+        local result=""
+        if result=$(memorize "$content" "$metadata" 2>/dev/null); then
+            :
+        else
+            echo -e "${YELLOW}⚠ memU request failed (local saved)${NC}" >&2
+            return 0
+        fi
+        if echo "$result" | grep -q "\"success\""; then
             echo -e "${GREEN}✓ Synced to memU${NC}"
         else
             echo -e "${YELLOW}⚠ memU sync failed (local saved)${NC}"
@@ -192,15 +216,23 @@ search() {
         retrieve "$query" "$limit"
     else
         # Fallback to local grep
+        require_cmd grep
+        require_cmd head
         echo -e "${YELLOW}memU unavailable, searching local files...${NC}"
         ensure_dirs
         echo ""
-        grep -r -l -i "$query" "$MEMORY_DIR" 2>/dev/null | while read -r file; do
+        local matches
+        matches=$(grep -r -l -i "$query" "$MEMORY_DIR" 2>/dev/null || true)
+        if [ -z "$matches" ]; then
+            echo "No local matches."
+            return 0
+        fi
+        while IFS= read -r file; do
             echo -e "${GREEN}Found: $file${NC}"
             echo "---"
             head -15 "$file"
             echo ""
-        done
+        done <<< "$matches"
     fi
 }
 
@@ -233,25 +265,42 @@ case "$1" in
         save "$2" "$3" "$4"
         ;;
     memorize)
+        if ! is_memu_available; then
+            echo -e "${RED}ERROR: memU unavailable at $MEMU_API${NC}" >&2
+            exit 1
+        fi
         memorize "$2" "$3"
         ;;
     retrieve|search)
         search "$2" "$3"
         ;;
     check-similar)
+        if ! is_memu_available; then
+            echo -e "${RED}ERROR: memU unavailable at $MEMU_API${NC}" >&2
+            exit 1
+        fi
         check_similar "$2" "$3"
         ;;
     list)
         if [ "$2" = "--local" ] || [ "$2" = "-l" ]; then
             list_local "$3"
         else
-            list_items "$2"
+            if is_memu_available; then
+                list_items "$2"
+            else
+                echo -e "${YELLOW}memU unavailable, listing local memories instead...${NC}"
+                list_local "${2:-all}"
+            fi
         fi
         ;;
     list-local)
         list_local "$2"
         ;;
     delete)
+        if ! is_memu_available; then
+            echo -e "${RED}ERROR: memU unavailable at $MEMU_API${NC}" >&2
+            exit 1
+        fi
         delete_item "$2"
         ;;
     health)
