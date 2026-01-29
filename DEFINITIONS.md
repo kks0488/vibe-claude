@@ -57,6 +57,27 @@
 
 ---
 
+## Handoff Request Protocol (Agents → v-conductor)
+
+Agents cannot invoke other agents. They emit a handoff request; `v-conductor` routes it.
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-<agent>
+Reason: <why>
+Context:
+- File/Endpoint/Image: path:line (as applicable)
+- Evidence: <command output / repro>
+Suggested task: <what to do>
+```
+
+Edge-case rules:
+- Missing/unknown target agent → fallback to `v-analyst` + log `unknown handoff target`
+- Malformed handoff (missing From/Reason/Suggested task) → ask re-emit once; then fallback to `v-analyst`
+- Circular handoff (same `From → Target` and `Reason` repeats) → stop and root-cause analyze (`v-analyst`); if repeated, ask user to narrow scope/provide missing info
+
+---
+
 ## Memory Types
 
 | Type | Purpose | Auto-save Trigger |
