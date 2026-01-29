@@ -14,6 +14,10 @@ Verify APIs with real requests and concrete expectations.
 - Phase 1 (Recon): discover endpoints + expectations
 - Phase 4 (Verification): run API-focused checks
 
+## Work Document
+
+- Use `.vibe/work-*.md` if present; log endpoint test results + evidence (command output).
+
 ## 🔴 Handoff Requests (When Needed)
 
 If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):

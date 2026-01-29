@@ -12,8 +12,12 @@ Multi-agent orchestration for **Claude Code (Anthropic CLI)**:
 ## Quick Start (First-Time User)
 
 ```bash
-# Install (recommended)
+# Option 1: Plugin install (if registry available)
 claude plugin install vibe-claude
+
+# Option 2: Manual install
+git clone https://github.com/kks0488/vibe-claude.git
+cd vibe-claude && bash scripts/install.sh
 
 # Restart Claude Code after install/update
 ```
