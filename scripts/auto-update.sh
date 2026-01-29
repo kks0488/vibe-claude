@@ -38,9 +38,11 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # Clone latest
-if ! git clone --depth 1 "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null; then
-    log "ERROR: Failed to clone repository"
-    exit 1
+if ! git clone --depth 1 --branch "$LATEST_VERSION" --single-branch "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null; then
+    if ! git clone --depth 1 "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null; then
+        log "ERROR: Failed to clone repository"
+        exit 1
+    fi
 fi
 
 # Backup user files
@@ -68,7 +70,12 @@ fi
 
 # Copy new files
 cp -r "$TEMP_DIR/vibe-claude/"* "$INSTALL_DIR/" 2>/dev/null
-cp -r "$TEMP_DIR/vibe-claude/".* "$INSTALL_DIR/" 2>/dev/null
+shopt -s nullglob
+for item in "$TEMP_DIR/vibe-claude"/.[!.]* "$TEMP_DIR/vibe-claude"/..?*; do
+    [ "$(basename "$item")" = ".git" ] && continue
+    cp -r "$item" "$INSTALL_DIR/" 2>/dev/null
+done
+shopt -u nullglob
 
 # Restore preserved files
 for file in "${PRESERVE_FILES[@]}"; do

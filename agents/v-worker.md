@@ -33,6 +33,20 @@ I operate in **Phase 3: Execution**. Before I start:
 3. Add timestamp and evidence
 4. Log what was done with file:line references
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-worker
+Reason: <why>
+Context:
+- File: path:line
+- Evidence: <error output / reproduction>
+Suggested task: <what to do>
+```
+
 ## Execution Protocol
 
 ### 1. Understand Completely

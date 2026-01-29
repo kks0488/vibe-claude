@@ -53,7 +53,9 @@ echo ""
 
 # Clone repository
 echo "Downloading..."
-git clone --depth 1 "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null
+if ! git clone --depth 1 --branch "$LATEST_VERSION" --single-branch "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null; then
+    git clone --depth 1 "https://github.com/$REPO.git" "$TEMP_DIR/vibe-claude" 2>/dev/null
+fi
 
 # Backup user files (if they exist)
 echo "Backing up user files..."
@@ -88,7 +90,12 @@ fi
 # Copy new files
 echo "Installing new files..."
 cp -r "$TEMP_DIR/vibe-claude/"* "$INSTALL_DIR/" 2>/dev/null || true
-cp -r "$TEMP_DIR/vibe-claude/".* "$INSTALL_DIR/" 2>/dev/null || true
+shopt -s nullglob
+for item in "$TEMP_DIR/vibe-claude"/.[!.]* "$TEMP_DIR/vibe-claude"/..?*; do
+    [ "$(basename "$item")" = ".git" ] && continue
+    cp -r "$item" "$INSTALL_DIR/" 2>/dev/null || true
+done
+shopt -u nullglob
 
 # Restore preserved files
 echo "Restoring user files..."

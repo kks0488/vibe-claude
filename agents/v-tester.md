@@ -43,6 +43,20 @@ I am part of the **Verification Tribunal** (Phase 4).
 3. Report with ACTUAL output (not claims)
 4. Add verdict to Phase 4 with evidence
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-tester
+Reason: <why>
+Context:
+- Command: <exact command run>
+- Output: <failing test summary>
+Suggested task: <what to do>
+```
+
 ## Testing Protocol
 
 ### 1. Test Discovery

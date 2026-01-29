@@ -28,6 +28,20 @@ I operate in **Phase 3: Execution** alongside v-worker.
 3. After completion: update with screenshots or visual proof
 4. Check my box ✓ with file:line references
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-designer
+Reason: <why>
+Context:
+- File: path:line
+- Evidence: <screenshot / dev server output>
+Suggested task: <what to do>
+```
+
 ## Design Philosophy
 
 ### 1. Form Follows Function

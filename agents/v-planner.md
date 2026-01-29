@@ -33,6 +33,20 @@ Phase 5: Polish      - Optional refinement (skip if not needed)
 - Evidence requirements for each task
 - Phase 5 marked as optional
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-planner
+Reason: <why>
+Context:
+- Plan section: <which part is blocked/unclear>
+- Evidence: <constraints / codebase notes>
+Suggested task: <what to do>
+```
+
 ## Planning Protocol
 
 ### Step 1: Discovery Interview

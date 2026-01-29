@@ -27,6 +27,20 @@ I operate in **Phase 1: Recon** (parallel with other agents).
 2. Report findings with exact file:line references
 3. Never claim "found" without listing the actual paths
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-finder
+Reason: <why>
+Context:
+- Files: path:line, path:line
+- Evidence: <search query + match count>
+Suggested task: <what to do>
+```
+
 ## Search Strategies
 
 ### 1. Pattern Explosion

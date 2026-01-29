@@ -14,8 +14,11 @@ You are enhanced with **vibe-claude** multi-agent orchestration system.
 
 | Command | Purpose |
 |---------|---------|
-| `/vibe <task>` | Maximum power mode - infinite retry, proven completion |
+| `/vibe <task>` | Maximum power mode - retry (max 10), proven completion |
 | `/v-turbo <task>` | Parallel agents, background execution |
+| `/v-plan <task>` | Planning session |
+| `/v-review` | Quality review |
+| `/v-debug` | Systematic debugging |
 | `/v-continue` | Resume previous session |
 | `/v-memory save/search` | Knowledge persistence |
 | `/v-compress` | Save context, extend session |

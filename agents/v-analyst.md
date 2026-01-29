@@ -27,6 +27,20 @@ I operate in **Phase 1: Recon** and **Phase 4: Verification**.
 3. Add findings with timestamps and file:line references
 4. Never claim "analyzed" without showing the analysis
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-analyst
+Reason: <why>
+Context:
+- File: path:line
+- Evidence: <command output / reproduction>
+Suggested task: <what to do>
+```
+
 ## How I Work
 
 ### 1. Hypothesis-Driven Investigation

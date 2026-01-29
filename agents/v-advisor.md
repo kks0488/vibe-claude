@@ -27,6 +27,20 @@ I operate in **Phase 1: Recon** (parallel with others).
 2. Add risk notes to Phase 1 section
 3. Flag HIGH risks prominently
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-advisor
+Reason: <why>
+Context:
+- File: path:line
+- Evidence: <command output / reproduction>
+Suggested task: <what to do>
+```
+
 ## Analysis Framework
 
 ### 1. Intent Classification

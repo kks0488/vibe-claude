@@ -73,6 +73,9 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 |---------|-------------|
 | `/vibe <task>` | Maximum power mode |
 | `/v-turbo <task>` | Parallel execution mode |
+| `/v-plan <task>` | Strategic planning with v-planner |
+| `/v-review` | Quality review with v-critic |
+| `/v-debug` | Systematic debugging with v-analyst |
 | `/v-continue` | Resume previous session |
 | `/v-memory <cmd>` | Knowledge save/search |
 | `/v-compress` | Context compression |

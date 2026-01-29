@@ -4,11 +4,12 @@
 
 ---
 
-## 5-Phase Structure
+## 5-Phase Structure (+ Phase 0.5)
 
 | Phase | Name | Purpose | Agents |
 |-------|------|---------|--------|
 | 0 | Routing | 복잡도 분류, 경로 선택 | Claude (자동) |
+| 0.5 | Interview | (COMPLEX만) 요구사항 명확화, 제약/성공 기준 수집 | Claude (자동) |
 | 1 | Recon | 분석, 탐색, 리서치 | v-analyst, v-finder, v-researcher, v-advisor |
 | 2 | Planning | 전략 수립 (COMPLEX만) | v-planner |
 | 3 | Execution | 구현, 코드 작성 | v-worker, v-designer, v-writer |
@@ -24,7 +25,7 @@
 | TRIVIAL | 단일 줄 수정, 타이포 | P3 only |
 | SIMPLE | 단일 파일, 명확한 요구사항 | P1→P3→P4 |
 | MODERATE | 다중 파일, 명확한 요구사항 | P1→P3→P4 |
-| COMPLEX | 아키텍처 변경, 3+ 모듈 영향 | P1→P2→P3→P4→P5 |
+| COMPLEX | 아키텍처 변경, 3+ 모듈 영향 | P0.5→P1→P2→P3→P4→P5 |
 
 ---
 

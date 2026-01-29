@@ -162,10 +162,10 @@ Expensive, but effective.
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │  ┌─────────────────────────────────────┐    │
-│  │           SKILLS (8)                 │    │
-│  │  vibe v-turbo v-git v-style         │    │
-│  │  v-evolve v-continue v-memory       │    │
-│  │  v-compress                          │    │
+│  │           SKILLS (11)                │    │
+│  │  vibe v-turbo v-plan v-review       │    │
+│  │  v-debug v-git v-style v-evolve     │    │
+│  │  v-continue v-memory v-compress     │    │
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │      RESULT                                  │
@@ -230,7 +230,7 @@ Expensive, but effective.
 
 ## How It Works
 
-### Context Management (NEW in v2.1)
+### Context Management (NEW in 1.2.0)
 
 > **"Context window is the most valuable resource."**
 
@@ -246,7 +246,7 @@ Expensive, but effective.
 - **Two-Strike Rule**: Same failure twice → evaluate context → compress or clear
 - **Checkpoint Protocol**: Save progress at phase completion and before risky operations
 
-### Dynamic Routing (NEW in v2.1)
+### Dynamic Routing (NEW in 1.2.0)
 
 Not all tasks need all phases:
 
@@ -340,7 +340,7 @@ After 10: Ask user for guidance
 
 **Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
 
-### Anti-Patterns (NEW in v2.1)
+### Anti-Patterns (NEW in 1.2.0)
 
 Vibe-Claude now detects and avoids common failure patterns:
 
@@ -352,7 +352,7 @@ Vibe-Claude now detects and avoids common failure patterns:
 | Trust-Verify Gap | Claim without proof | Run verification |
 | Subagent Bypass | Direct exploration | Delegate now |
 
-### Batch Operations (NEW in v2.1)
+### Batch Operations (NEW in 1.2.0)
 
 For large-scale changes (5+ files):
 
@@ -370,7 +370,7 @@ Orchestrator (main Claude):
 
 **Writer/Reviewer Pattern**: For quality-critical batch ops, v-worker writes → v-critic reviews → fix issues → final verification.
 
-### Session Management (Enhanced in v2.1)
+### Session Management (Enhanced in 1.2.0)
 
 Never lose progress when context runs out:
 
@@ -460,11 +460,11 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 | `/v-turbo <task>` | Maximum speed with concurrent execution |
 | `/v-plan <task>` | Strategic planning session |
 | `/v-review` | Critical evaluation of code/plans |
+| `/v-debug` | Systematic debugging session |
 | `/v-continue` | Resume work from previous session |
 | `/v-memory <cmd>` | Save, search, recall knowledge |
 | `/v-compress` | Compress context, extend session |
 | `/cancel-vibe` | Stop current vibe session |
-| `/update` | Check for and install vibe-claude updates |
 
 ---
 
@@ -548,9 +548,14 @@ vibe-claude/
 │   ├── v-debug/
 │   └── ...
 ├── commands/          # Slash commands
+│   ├── vibe.md
+│   ├── v-turbo.md
 │   ├── v-plan.md
 │   ├── v-review.md
-│   └── v-debug.md
+│   ├── v-debug.md
+│   ├── v-continue.md
+│   ├── v-memory.md
+│   └── v-compress.md
 ├── hooks/             # Auto-execution hooks
 │   ├── hooks.json
 │   └── session-start.sh
@@ -580,7 +585,7 @@ A: No.
 A: Type `/vibe` and describe what you want.
 
 **Q: What if it doesn't work?**
-A: Claude retries automatically. Until it works.
+A: Claude retries automatically (up to 10 attempts by default).
 
 **Q: Is it expensive?**
 A: Yes. But it works.
@@ -595,7 +600,7 @@ A: Yes. Edit the markdown files in `~/.claude/agents/`.
 1. **Don't think, describe** - Say what you want, not how
 2. **Trust the process** - Let Claude figure it out
 3. **Money solves problems** - Opus is worth it
-4. **Perfection is automatic** - Retries until right
+4. **Perfection is automatic** - Retries (max 10) until right
 5. **Evolution is constant** - System improves itself every day
 
 ---

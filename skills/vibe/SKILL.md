@@ -1,11 +1,11 @@
 ---
 name: vibe
-description: Maximum power mode. Todo tracking, agent delegation, verification, infinite retry.
+description: Maximum power mode. Todo tracking, agent delegation, verification, retry (max 10).
 ---
 
 # Vibe Skill
 
-The core skill that powers `/vibe` mode. Maximum power, infinite retry, proven completion.
+The core skill that powers `/vibe` mode. Maximum power, retry (max 10), proven completion.
 
 ## Core Philosophy
 
@@ -14,7 +14,7 @@ DOCUMENT FIRST.
 MONEY IS NO OBJECT.
 OPUS FOR EVERYTHING.
 PARALLEL EVERYTHING.
-RETRY INFINITELY.
+RETRY (MAX 10).
 NEVER. GIVE. UP.
 NEVER. FORGET.
 CONTEXT IS PRECIOUS.

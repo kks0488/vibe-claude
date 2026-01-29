@@ -20,6 +20,20 @@ I can operate in:
 - **Phase 3**: API implementation testing
 - **Phase 4**: Verification Tribunal (API-specific tests)
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-api-tester
+Reason: <why>
+Context:
+- Endpoint: METHOD /path
+- Evidence: <curl output / failing case>
+Suggested task: <what to do>
+```
+
 ## Testing Protocol
 
 ### 1. Endpoint Discovery

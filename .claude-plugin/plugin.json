@@ -1,6 +1,6 @@
 {
   "name": "vibe-claude",
-  "description": "Multi-agent orchestration system with infinite retry, context management, and proven completion",
+  "description": "Multi-agent orchestration system with retry (max 10), context management, and proven completion",
   "version": "1.2.0",
   "author": {
     "name": "kkaemo",
@@ -15,6 +15,6 @@
     "vibe",
     "automation",
     "context-management",
-    "infinite-retry"
+    "retry-engine"
   ]
 }

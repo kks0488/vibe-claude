@@ -19,6 +19,25 @@ ensure_dirs() {
     mkdir -p "$MEMORY_DIR"/{lessons,patterns,decisions,context}
 }
 
+# JSON string escaping for safe request bodies
+escape_for_json() {
+    local input="$1"
+    local output=""
+    local i char
+    for (( i=0; i<${#input}; i++ )); do
+        char="${input:$i:1}"
+        case "$char" in
+            $'\\') output+='\\' ;;
+            '"') output+='\"' ;;
+            $'\n') output+='\n' ;;
+            $'\r') output+='\r' ;;
+            $'\t') output+='\t' ;;
+            *) output+="$char" ;;
+        esac
+    done
+    printf '%s' "$output"
+}
+
 # Check if memU is available
 is_memu_available() {
     curl -s --connect-timeout 2 "$MEMU_API/health" > /dev/null 2>&1
@@ -68,8 +87,8 @@ memorize() {
     curl -s -X POST "$MEMU_API/memorize" \
         -H "Content-Type: application/json" \
         -d "{
-            \"content\": \"$content\",
-            \"user_id\": \"$MEMU_USER_ID\",
+            \"content\": \"$(escape_for_json "$content")\",
+            \"user_id\": \"$(escape_for_json "$MEMU_USER_ID")\",
             \"metadata\": $metadata
         }"
 }
@@ -81,8 +100,8 @@ retrieve() {
     curl -s -X POST "$MEMU_API/retrieve" \
         -H "Content-Type: application/json" \
         -d "{
-            \"query\": \"$query\",
-            \"user_id\": \"$MEMU_USER_ID\",
+            \"query\": \"$(escape_for_json "$query")\",
+            \"user_id\": \"$(escape_for_json "$MEMU_USER_ID")\",
             \"limit\": $limit
         }"
 }
@@ -94,8 +113,8 @@ check_similar() {
     curl -s -X POST "$MEMU_API/check-similar" \
         -H "Content-Type: application/json" \
         -d "{
-            \"content\": \"$content\",
-            \"user_id\": \"$MEMU_USER_ID\",
+            \"content\": \"$(escape_for_json "$content")\",
+            \"user_id\": \"$(escape_for_json "$MEMU_USER_ID")\",
             \"threshold\": $threshold
         }"
 }
@@ -145,7 +164,7 @@ save() {
 
     # Try to sync to memU
     if is_memu_available; then
-        local metadata="{\"title\":\"$title\",\"type\":\"$type\",\"source\":\"vibe-claude\"}"
+        local metadata="{\"title\":\"$(escape_for_json "$title")\",\"type\":\"$(escape_for_json "$type")\",\"source\":\"vibe-claude\"}"
         local result=$(memorize "$content" "$metadata")
         if echo "$result" | grep -q "success"; then
             echo -e "${GREEN}✓ Synced to memU${NC}"

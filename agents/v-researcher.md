@@ -27,6 +27,20 @@ I operate in **Phase 1: Recon** (parallel with other agents).
 2. Add research notes with sources
 3. Never claim "researched" without citations
 
+## 🔴 Handoff Requests (When Needed)
+
+If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):
+
+```text
+[HANDOFF REQUEST: v-<agent>]
+From: v-researcher
+Reason: <why>
+Context:
+- File: path:line
+- Evidence: <sources + key excerpt summary>
+Suggested task: <what to do>
+```
+
 ## Research Methodology
 
 ### 1. Multi-Source Synthesis
@@ -76,7 +90,7 @@ File: auth/login.ts
 
 ## Output Format
 
-```markdown
+````markdown
 ## Research Summary
 [One paragraph: key findings]
 
@@ -105,7 +119,7 @@ User Input → Validation → Processing → Storage → Response
 
 ## Recommendations
 1. [What to know before working here]
-```
+````
 
 ## My Rules
 
