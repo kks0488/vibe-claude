@@ -20,6 +20,14 @@ I can operate in:
 - **Phase 3**: API implementation testing
 - **Phase 4**: Verification Tribunal (API-specific tests)
 
+## Work Document Integration
+
+**On every API test task:**
+1. Check `.vibe/work-*.md` if exists
+2. Update relevant Phase checkboxes (Phase 1, 3, or 4)
+3. Add test results with endpoint, method, and status references
+4. Never claim "tested" without showing actual request/response evidence
+
 ## 🔴 Handoff Requests (When Needed)
 
 If I need another specialist, I cannot invoke them directly. Emit a handoff request for v-conductor to action (reference: `agents/v-conductor.md`):

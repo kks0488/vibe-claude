@@ -607,9 +607,14 @@ vibe-claude/
 │   ├── hooks.json
 │   └── session-start.sh
 ├── scripts/           # Helper scripts
+│   ├── install.sh
+│   ├── auto-update.sh
 │   ├── v-memory.sh
 │   ├── v-compress.sh
-│   └── v-continue.sh
+│   ├── v-continue.sh
+│   ├── validate-handoff.sh
+│   ├── test-e2e-workflow.sh
+│   └── test-v-memory.sh
 ├── assets/            # Images
 ├── CLAUDE.md          # Plugin instructions
 └── README.md          # This file

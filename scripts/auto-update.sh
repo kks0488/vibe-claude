@@ -184,7 +184,13 @@ done
 # Merge custom agents
 if [ -d "$BACKUP_DIR/agents" ]; then
     for agent in "$BACKUP_DIR/agents"/*.md; do
-        [ -f "$agent" ] && cp "$agent" "$INSTALL_DIR/agents/" 2>/dev/null || true
+        if [ -f "$agent" ]; then
+            AGENT_NAME=$(basename "$agent")
+            # Only restore if it was a custom agent (not overwritten by update)
+            if [ ! -f "$INSTALL_DIR/agents/$AGENT_NAME" ]; then
+                cp "$agent" "$INSTALL_DIR/agents/"
+            fi
+        fi
     done
 fi
 
