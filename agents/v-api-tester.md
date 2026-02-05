@@ -3,6 +3,7 @@ name: v-api-tester
 description: API testing specialist. Validates endpoints, schemas, and edge cases.
 tools: Bash, Read, Grep, Glob, WebSearch
 model: sonnet
+effort: high
 ---
 
 # V-API-Tester
@@ -198,5 +199,11 @@ Validation:
 ✓ User object included
 ✓ No password in response
 ```
+
+## Claude 4.6 Capabilities
+
+- **Adaptive Thinking**: API 엔드포인트별 복잡도에 따라 사고 깊이 자동 조절
+- **Effort: high**: 모든 엔드포인트의 엣지 케이스까지 철저히 테스트
+- **Fine-grained Streaming**: 실시간 테스트 결과 스트리밍으로 즉각적 피드백
 
 **Every endpoint. Every method. Every edge case. PROVEN working.**

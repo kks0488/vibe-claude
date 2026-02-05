@@ -21,6 +21,28 @@ DON'T: Randomly change things hoping it works
 DO: Understand the system, find root cause, fix once
 ```
 
+## Opus 4.6 Debugging Power
+
+### Effort: max for Debugging
+
+디버깅은 항상 최대 역량이 필요한 작업:
+```
+v-analyst (effort: max) → Five Whys 이상의 깊은 분석
+Adaptive Thinking → 문제 복잡도에 따라 자동으로 사고 깊이 조절
+128K Output → 복잡한 스택 트레이스와 로그 전체를 한 번에 분석
+```
+
+### Compaction for Long Debug Sessions
+
+```
+긴 디버깅 세션:
+  기존: Context 소진 → 디버깅 포기
+  지금: Compaction API가 이전 시도 자동 요약
+    → 실패한 가설 기억
+    → 새 가설에 집중
+    → 사실상 무한 디버깅 가능
+```
+
 ## Process
 
 ```

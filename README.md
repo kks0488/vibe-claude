@@ -4,85 +4,124 @@
   <img src="assets/vibe-claude.jpeg" alt="Vibe-Claude Logo" width="400">
 </p>
 
-> **Don't think. Just vibe. Claude does the rest.**
+<h3 align="center">Don't think. Just vibe. Claude does the rest.</h3>
 
-A **self-evolving** multi-agent orchestration system for Claude Code.
-The more you use it, the smarter it gets.
+<p align="center">
+  <strong>A self-evolving multi-agent orchestration system for Claude Code</strong><br>
+  The more you use it, the smarter it gets.
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai)
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://claude.ai"><img src="https://img.shields.io/badge/Claude-Code-blueviolet" alt="Claude Code"></a>
+  <a href="#"><img src="https://img.shields.io/badge/v3.0.0-Opus%204.6-orange" alt="v3.0.0"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Agents-13-blue" alt="13 Agents"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Skills-11-green" alt="11 Skills"></a>
+  <a href="#"><img src="https://img.shields.io/badge/128K%20Output-Adaptive%20Thinking-brightgreen" alt="128K Output"></a>
+</p>
 
 ---
 
-## Key Feature: Self-Evolution
-
-**Vibe-Claude evolves itself.** When it encounters a task it can't handle well:
+## What Happens When You Type `/vibe`
 
 ```
-Capability gap detected
-        ↓
-Create new agent prompt or skill
-        ↓
-Save to ~/.claude/agents/ or ~/.claude/skills/
-        ↓
-Reference and use in future tasks
+You: "/vibe make me a login page with OAuth"
+
+Vibe-Claude:
+├─ 🔍 Analyzes your codebase (v-analyst)
+├─ 📋 Plans the implementation (v-planner)
+├─ 🏗️ Builds the feature (v-worker, v-designer)
+├─ ✅ Tests everything (v-tester)
+├─ 🔄 Fixes any issues (automatic retry)
+└─ ✨ Done. Actually done. Proven done.
+
+Time: You waited. It worked.
+Cost: Opus 4.6-level. Worth it.
+Power: 128K output. Adaptive thinking. Compaction.
 ```
 
-| Situation | What Happens |
-|-----------|--------------|
-| Repeated task pattern | Creates reusable prompt template |
-| Specialized knowledge needed | Creates expert agent prompt |
-| Better method discovered | Updates existing prompts |
-| External tool needed | Creates integration skill |
+---
 
-### How Evolution Works
+## Powered by Opus 4.6
 
-New agents are saved as prompt files. Claude reads and applies them when relevant:
+| Feature | What It Means |
+|---------|---------------|
+| **Adaptive Thinking** | 작업 복잡도에 따라 사고 깊이 자동 조절 |
+| **Effort: max** | COMPLEX 작업에 최대 역량 투입 |
+| **128K Output** | 64K → 128K, 대규모 기능 한 번에 생성 |
+| **Compaction API** | 서버사이드 자동 컨텍스트 요약 → 무한 대화 |
+| **Fine-grained Streaming** | 실시간 진행상황 모니터링 (GA) |
 
+---
+
+## The Difference
+
+| Without Vibe-Claude | With Vibe-Claude |
+|---------------------|------------------|
+| "Build a login page" | "Build a login page" |
+| ↓ | ↓ |
+| Claude asks clarifying questions | Claude interviews you once |
+| You answer | Plans everything |
+| Claude writes some code | Builds in parallel |
+| Error occurs | Tests automatically |
+| You debug together | Retries on failure |
+| More errors | Retries again |
+| Context runs out | Compresses context |
+| Start over | Keeps working |
+| ... | ... |
+| **Hours later**: Maybe done? | **Result**: Working, tested, verified |
+
+---
+
+## Quick Start (30 seconds)
+
+```bash
+# Plugin installation (recommended)
+claude plugin install vibe-claude@vibe-claude-marketplace
+
+# Or clone manually
+git clone https://github.com/kks0488/vibe-claude.git ~/projects/vibe-claude
+cd ~/projects/vibe-claude && claude plugin link .
+
+# Use it
+/vibe build me a todo app with dark mode
 ```
-User: "Test my API endpoints"
-        ↓
-Claude checks ~/.claude/agents/
-        ↓
-Finds v-api-tester.md
-        ↓
-Reads the prompt and becomes that specialist
-```
 
-**The system learns your project's patterns over time.**
+That's literally it. No config. Just results.
 
 ---
 
 ## Who Is This For?
 
-- "I don't know code" → **You don't need to**
-- "Just make it work" → **It will**
-- "I hate complexity" → **One command**
-- "Money isn't the issue" → **We use Opus liberally**
+| You say... | Vibe-Claude says... |
+|------------|---------------------|
+| "I don't know code" | You don't need to |
+| "Just make it work" | It will |
+| "I hate complexity" | One command: `/vibe` |
+| "Money isn't the issue" | Perfect. We use Opus liberally |
+| "I need it done right" | Verified. Tested. Proven. |
 
 ---
 
-## Quick Start
+## Real Examples
 
 ```bash
-# Install (Plugin - Recommended)
-claude plugin install vibe-claude
+# Simple
+/vibe add a logout button
 
-# Or manual install
-git clone https://github.com/kks0488/vibe-claude.git ~/.claude-vibe
-cp -r ~/.claude-vibe/* ~/.claude/
+# Moderate
+/vibe create a blog with comments and markdown support
 
-# Use
-/vibe make me a login page
+# Complex
+/vibe refactor the entire authentication system to use JWT
+
+# Ambitious
+/vibe build a real-time chat feature with typing indicators
 ```
 
-That's it. Claude will:
-- Analyze what's needed
-- Plan the approach
-- Build it
-- Test it
-- Fix any issues
-- Repeat until perfect
+**Any language. Any description. Any complexity.**
+
+Claude figures out what you mean and makes it happen.
 
 ### Practical Prompt Examples (Copy/Paste)
 
@@ -133,256 +172,140 @@ This script installs into `~/.claude/`, keeps backups, and is safe to re-run for
 
 ---
 
-## Usage Examples
+## How It Actually Works
+
+### The 13 Agents
+
+Vibe-Claude isn't just one AI. It's a team:
 
 ```
-/vibe create a blog with comments
-/vibe fix this authentication bug
-/vibe add dark mode to my app
-/vibe make this look professional
-/vibe refactor the entire API layer
+┌──────────────────────────────────────────────────────────┐
+│              AGENT HIERARCHY (Opus 4.6)                  │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  🧠 OPUS 4.6 TIER (effort: max) - 6 agents               │
+│  ├─ v-analyst    → Deep debugging, root cause            │
+│  ├─ v-planner    → Strategy, architecture                │
+│  ├─ v-critic     → Ruthless code review                  │
+│  ├─ v-advisor    → Risk analysis                         │
+│  ├─ v-conductor  → Orchestration + effort routing        │
+│  └─ v-tester     → Edge case verification                │
+│  ★ Adaptive Thinking + 128K Output + Compaction          │
+│                                                          │
+│  ⚡ SONNET 4.5 TIER (effort: high) - 5 agents             │
+│  ├─ v-worker     → Code implementation                   │
+│  ├─ v-designer   → UI/UX, styling                        │
+│  ├─ v-researcher → Codebase analysis                     │
+│  ├─ v-vision     → Screenshot analysis                   │
+│  └─ v-api-tester → API endpoint testing                  │
+│  ★ Fine-grained Streaming GA                             │
+│                                                          │
+│  🚀 HAIKU 4.5 TIER (effort: low) - 2 agents              │
+│  ├─ v-finder     → Fast file search                      │
+│  └─ v-writer     → Documentation                         │
+│  ★ Maximum speed, minimal overhead                       │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-Just describe what you want. In any language. However you want.
+### Effort-Based Routing (New in v3.0.0)
 
----
+Smart task classification → optimal agent + effort level:
 
-## Philosophy
+| Complexity | Effort | Agents | Thinking |
+|------------|--------|--------|----------|
+| TRIVIAL | `low` | Haiku | Minimal |
+| SIMPLE | `medium` | Sonnet | Balanced |
+| MODERATE | `high` | Sonnet/Opus | Deep |
+| COMPLEX | `max` | Opus 4.6 | Maximum |
 
-> **"Vibe coding: where you describe, AI delivers."**
+### The 11 Skills
 
-| Traditional Development | Vibe-Claude |
-|------------------------|-------------|
-| 1. Write requirements | 1. "Make this" |
-| 2. Design architecture | 2. Done |
-| 3. Write code | |
-| 4. Write tests | |
-| 5. Debug | |
-| 6. Repeat... | |
-
-### Why Does This Work?
-
-**We throw money at it.**
-
-Vibe-Claude uses Opus 4.5 without hesitation:
-- Analysis? Opus
-- Planning? Opus
-- Review? Opus
-- Anything complex? Opus
-
-Expensive, but effective.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│              VIBE-CLAUDE                     │
-├─────────────────────────────────────────────┤
-│                                              │
-│  /vibe "your request"                        │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │         V-CONDUCTOR                  │    │
-│  │    (Auto-routes to right agent)      │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │           AGENTS (13)                │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-analyst │ │v-planner │ ← Opus   │    │
-│  │  │v-critic  │ │v-advisor │   (6)    │    │
-│  │  │v-conductor│ │v-tester │          │    │
-│  │  └──────────┘ └──────────┘          │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-worker  │ │v-designer│ ← Sonnet │    │
-│  │  │v-researcher│ │v-vision │   (5)    │    │
-│  │  │v-api-tester│           │          │    │
-│  │  └──────────┘ └──────────┘          │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-finder  │ │v-writer  │ ← Haiku  │    │
-│  │  └──────────┘ └──────────┘   (2)    │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │           SKILLS (11)                │    │
-│  │  vibe v-turbo v-plan v-review       │    │
-│  │  v-debug v-git v-style v-evolve     │    │
-│  │  v-continue v-memory v-compress     │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│      RESULT                                  │
-│         ↓                                    │
-│  Not perfect? → Retry (up to 10x)           │
-│         ↓                                    │
-│      DONE                                    │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Agents
-
-### Opus Tier (Heavy Lifting)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-analyst` | Deep debugging, root cause analysis |
-| `v-planner` | Strategic planning, architecture design |
-| `v-critic` | Ruthless code review, quality gates |
-| `v-advisor` | Risk analysis, hidden requirements |
-| `v-conductor` | Orchestration, agent routing |
-| `v-tester` | Test execution, edge case verification |
-
-### Sonnet Tier (Execution)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-worker` | Code implementation |
-| `v-designer` | UI/UX, styling, components |
-| `v-researcher` | Documentation, codebase analysis |
-| `v-vision` | Screenshot/image analysis |
-| `v-api-tester` | API endpoint testing |
-
-### Haiku Tier (Speed)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-finder` | Fast file/pattern search |
-| `v-writer` | Documentation writing |
-
----
-
-## Skills (11)
-
-| Skill | Purpose |
-|-------|---------|
-| `vibe` | Maximum power mode - parallel + retry + verification |
-| `v-turbo` | Parallel execution, maximum speed |
-| `v-plan` | Strategic planning with v-planner |
-| `v-review` | Quality review with v-critic |
-| `v-debug` | Systematic debugging with v-analyst |
-| `v-git` | Clean commits, git mastery |
+| Skill | What It Does |
+|-------|--------------|
+| `vibe` | Maximum power mode - the full orchestra |
+| `v-turbo` | Parallel execution for speed |
+| `v-plan` | Strategic planning before coding |
+| `v-review` | Quality gate - find every flaw |
+| `v-debug` | Systematic debugging, not guessing |
+| `v-git` | Clean commits, proper messages |
 | `v-style` | Beautiful UI, design systems |
-| `v-evolve` | Self-improvement, creates new capabilities |
-| `v-continue` | Session restoration, resume work |
-| `v-memory` | AI memory system with auto-recall & auto-save |
-| `v-compress` | Context compression, session extension |
+| `v-evolve` | Self-improvement, new capabilities |
+| `v-continue` | Resume work across sessions |
+| `v-memory` | Remember lessons, patterns, decisions |
+| `v-compress` | Extend sessions, save context |
+
+### The 5-Phase System
+
+Every `/vibe` task follows this:
+
+```
+Phase 0.5: INTERVIEW (complex tasks only)
+    └─ "What exactly do you need?"
+
+Phase 1: RECON (parallel)
+    ├─ v-analyst analyzes
+    ├─ v-finder searches
+    ├─ v-researcher studies
+    └─ v-advisor warns
+
+Phase 2: PLANNING (complex tasks only)
+    └─ v-planner creates the battle plan
+
+Phase 3: EXECUTION (parallel)
+    ├─ v-worker builds
+    ├─ v-designer styles
+    └─ v-writer documents
+
+Phase 4: ULTRA TRIBUNAL (all effort: max)
+    ├─ v-critic reviews (Opus 4.6)
+    ├─ v-analyst verifies (Opus 4.6)
+    └─ v-tester tests (Opus 4.6)
+    ALL THREE MUST APPROVE
+
+Phase 5: POLISH (complex tasks only)
+    └─ Refactor, document, optimize
+```
 
 ---
 
-## How It Works
+## The Secret Sauce: Self-Evolution
 
-### Context Management (NEW in 1.2.0)
-
-> **"Context window is the most valuable resource."**
+**Vibe-Claude learns from every interaction.**
 
 ```
-100% ████████████████████ Fresh session
- 60% ████████████░░░░░░░░ Caution → /v-compress
- 40% ████████░░░░░░░░░░░░ WARNING → checkpoint
- 20% ████░░░░░░░░░░░░░░░░ DANGER → /clear
+Week 1: "Optimize my database queries"
+        → Claude struggles a bit
+
+Week 2: Claude creates v-db-optimizer agent
+        → Specialized for YOUR stack
+
+Week 3+: All DB tasks → instant expertise
+         → Tailored to YOUR codebase
 ```
 
-**Key Principles:**
-- **Subagent-First Exploration**: Delegate exploration to agents, protect main context
-- **Two-Strike Rule**: Same failure twice → evaluate context → compress or clear
-- **Checkpoint Protocol**: Save progress at phase completion and before risky operations
+Every struggle becomes a strength. Every solution gets remembered.
 
-### Dynamic Routing (NEW in 1.2.0)
+---
 
-Not all tasks need all phases:
-
-| Complexity | Route | Interview? | Planning? |
-|------------|-------|------------|-----------|
-| TRIVIAL | P3 only | No | No |
-| SIMPLE | P1→P3→P4 | No | No |
-| MODERATE | P1→P3→P4 | Optional | No |
-| COMPLEX | P0.5→P1→P2→P3→P4→P5 | **YES** | **YES** |
-
-### The 5-Phase System (+ Phase 0.5)
-
-Every task follows this proven structure:
-
-```
-┌─────────────────────────────────────────────────┐
-│         THE 5-PHASE SYSTEM (+ Phase 0.5)        │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  Phase 0.5: INTERVIEW (COMPLEX only) ← NEW      │
-│  └─ Ask clarifying questions before starting    │
-│     - Scope: What's included/excluded?          │
-│     - Technical: Patterns, constraints?         │
-│     - Edge cases: Error scenarios?              │
-│     - Verification: Success criteria?           │
-│                                                 │
-│  Phase 1: RECON (Parallel)                      │
-│  ├─ v-analyst: Analyze requirements             │
-│  ├─ v-finder: Find related code                 │
-│  ├─ v-researcher: Research best practices       │
-│  └─ v-advisor: Identify risks                   │
-│                                                 │
-│  Phase 2: PLANNING (COMPLEX only)               │
-│  └─ v-planner: Create comprehensive plan        │
-│                                                 │
-│  Phase 3: EXECUTION (Parallel)                  │
-│  ├─ v-worker: Implement features                │
-│  ├─ v-designer: Build UI components             │
-│  └─ v-writer: Write documentation               │
-│                                                 │
-│  Phase 4: VERIFICATION TRIBUNAL                 │
-│  ├─ v-critic: Quality review                    │
-│  ├─ v-analyst: Logic verification               │
-│  └─ Tests: Automated checks                     │
-│  ALL THREE MUST APPROVE                         │
-│                                                 │
-│  Phase 5: POLISH (COMPLEX only)                 │
-│  ├─ Refactor if needed                          │
-│  ├─ Add docs/comments                           │
-│  └─ Security/performance check                  │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
-
-### Work Document Tracking
-
-Every `/vibe` task creates a tracking document:
-```
-.vibe/work-{timestamp}.md
-```
-
-This ensures **nothing is forgotten**. Each task is tracked with checkboxes and evidence.
-
-### Evidence-Based Completion
-
-**Nothing is "done" without proof:**
-- Code must actually RUN (output shown)
-- Tests must actually PASS (results pasted)
-- Every feature verified with `file:line` references
-
-**Forbidden phrases:**
-- "Should work" → Must TEST it
-- "I think it's done" → Must PROVE it
-- "Looks correct" → Must RUN it
-
-### Retry Engine (Context-Aware)
+## Infinite Retry Engine
 
 ```
 Attempt 1: Standard approach
     ↓ FAIL
 Attempt 2: Alternative method
-    ↓ FAIL (Two-Strike → Context Check)
+    ↓ FAIL
+Attempt 3: Escalate to Opus 4.6 (effort: max) + v-analyst
+    ↓ FAIL
+Attempt 4: Decompose into smaller tasks
+    ↓ FAIL
+Attempt 5: Research external solutions
+    ↓ FAIL
+...
+Attempt 10: Still trying
 
-Context > 60%: Continue with v-analyst deep dive
-Context 40-60%: /v-compress first, then retry
-Context < 40%: /clear + new approach
-
-Attempt 3-10: Various approaches (if context allows)
-After 10: Ask user for guidance
+THE LOOP CONTINUES UNTIL SUCCESS (max 10 attempts)
+(or you say /cancel-vibe)
 ```
 
 **Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
@@ -464,47 +387,30 @@ No more losing work when sessions end!
 
 ---
 
-### Self-Evolution (The Secret Sauce)
+## Context Management (Compaction-Enhanced)
 
-This is what makes Vibe-Claude different. When Claude encounters something it can't handle well:
+> **"Opus 4.6 + Compaction API = 컨텍스트 걱정은 과거의 일."**
 
 ```
-Day 1: "I need to optimize database queries"
-       → Claude struggles a bit
-
-Day 2: Claude creates v-db-optimizer agent
-       → Saves to ~/.claude/agents/v-db-optimizer.md
-
-Day 3+: All DB tasks routed to specialized agent
-        → Fast, efficient, tailored to YOUR codebase
+100% ████████████████████ Fresh session
+ 80% ████████████████░░░░ Compaction API standby
+ 60% ████████████░░░░░░░░ Compaction 자동 요약 시작
+ 40% ████████░░░░░░░░░░░░ /v-compress 보조 + checkpoint
+ 20% ████░░░░░░░░░░░░░░░░ /v-continue 준비
 ```
 
-**Evolution is logged:**
-```
-~/.claude/evolution-log.md
+**Two-Strike Rule**: Same failure twice? Evaluate context → compress or clear.
 
-## [2024-01-15] Created v-db-optimizer
-
-### Reason
-Repeated database optimization requests with suboptimal results
-
-### Change
-Created specialized agent with PostgreSQL expertise
-
-### Effect
-DB optimization tasks now 3x faster with better results
-```
-
-The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
+**Never lose work**: `/v-continue` resumes from last checkpoint.
 
 ---
 
-## Commands
+## Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| `/vibe <task>` | Maximum power mode - parallel + retry + verification |
-| `/v-turbo <task>` | Maximum speed with concurrent execution |
+| `/vibe <task>` | Maximum power mode |
+| `/v-turbo <task>` | Parallel execution, max speed |
 | `/v-plan <task>` | Strategic planning session |
 | `/v-review` | Critical evaluation of code/plans |
 | `/v-debug` | Systematic debugging session |
@@ -512,88 +418,138 @@ The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
 | `/v-memory <cmd>` | Save, search, recall knowledge |
 | `/v-compress` | Compress context, extend session |
 | `/cancel-vibe` | Stop current vibe session |
+| `/update` | Check for updates |
 
 ---
 
-## V-Memory System
+## Evidence-Based Completion
 
-AI-powered knowledge system that learns and remembers automatically.
-
-### How It Works
+**Nothing is "done" without proof.**
 
 ```
-┌─────────────────────────────────────────────────┐
-│              V-MEMORY SYSTEM                     │
-├─────────────────────────────────────────────────┤
-│                                                  │
-│  AUTO-RECALL (on task start)                     │
-│  ├─ /vibe runs → auto-search related memories   │
-│  ├─ Error occurs → search similar solutions     │
-│  └─ New project → auto-load related knowledge   │
-│                                                  │
-│  AUTO-SAVE (on task complete)                    │
-│  ├─ Failure → Solution → auto-save lesson       │
-│  ├─ Same pattern 3x+ → auto-save pattern        │
-│  ├─ Tech choice → auto-save decision            │
-│  └─ New domain → auto-save context              │
-│                                                  │
-│  DEDUP (before save)                             │
-│  └─ memU check-similar prevents duplicates      │
-│                                                  │
-└─────────────────────────────────────────────────┘
+## COMPLETION PROOF
+
+✓ Executed: npm run dev
+  Output: Server running on localhost:3000
+
+✓ Tests: npm test
+  Result: 47 passed, 0 failed
+
+✓ Features verified:
+  - Login page: src/pages/Login.tsx:42
+  - OAuth flow: src/auth/oauth.ts:15
+  - Error handling: src/utils/errors.ts:8
+
+✓ Tribunal: APPROVED
 ```
 
-### Memory Types
+**Forbidden phrases:**
+- ~~"Should work"~~ → Must TEST it
+- ~~"I think it's done"~~ → Must PROVE it
+- ~~"Looks correct"~~ → Must RUN it
 
-| Type | Purpose | Auto-Trigger |
-|------|---------|--------------|
-| `lessons` | Failure → Solution records | 2+ attempts then success |
-| `patterns` | Reusable code patterns | Same pattern 3x+ |
-| `decisions` | Architecture decisions | Tech choice discussions |
-| `context` | Project context | New domain learning |
+---
 
-### Storage
+## V-Memory: AI That Remembers
 
 ```
-~/.claude/.vibe/memory/
-├── lessons/      # Failure → Solution
-├── patterns/     # Code patterns
-├── decisions/    # Architecture decisions
-└── context/      # Project knowledge
+┌────────────────────────────────────────────────┐
+│              V-MEMORY SYSTEM                   │
+├────────────────────────────────────────────────┤
+│                                                │
+│  AUTO-RECALL                                   │
+│  ├─ New task → search related memories         │
+│  ├─ Error occurs → find similar solutions      │
+│  └─ New project → load relevant knowledge      │
+│                                                │
+│  AUTO-SAVE                                     │
+│  ├─ Struggled then succeeded → save lesson     │
+│  ├─ Same pattern 3x → save pattern             │
+│  └─ Architecture decision → save decision      │
+│                                                │
+└────────────────────────────────────────────────┘
 ```
-
-### memU Integration (Optional)
-
-**Works without memU** - local file storage + grep search.
-
-With memU enabled:
-- **Semantic search**: Search by meaning, not keywords
-- **Deduplication**: 85%+ similarity check prevents duplicates
-- **Auto-sync**: Local saves sync to memU automatically
 
 **The more you use it, the smarter it gets.**
 
 ---
 
-## File Structure (Plugin)
+## FAQ
+
+<details>
+<summary><strong>Do I need to know how to code?</strong></summary>
+
+No. Describe what you want in plain language. Any language.
+
+</details>
+
+<details>
+<summary><strong>What if it doesn't work the first time?</strong></summary>
+
+It retries automatically. Up to 10 times. Different approaches each time.
+
+</details>
+
+<details>
+<summary><strong>Is it expensive?</strong></summary>
+
+Yes. We use Opus liberally because it works. If cost matters more than results, this isn't for you.
+
+</details>
+
+<details>
+<summary><strong>How is this different from just using Claude Code?</strong></summary>
+
+Claude Code is the engine. Vibe-Claude is the autopilot. Powered by Opus 4.6, we add:
+- 13 specialized agents with effort-based routing
+- Adaptive thinking (auto-adjusts depth per task)
+- 128K output tokens (2x previous)
+- Compaction API for infinite conversations
+- Automatic retry on failure (up to 10x)
+- Context management + server-side compaction
+- Session persistence
+- Self-evolution
+- Evidence-based completion
+
+</details>
+
+<details>
+<summary><strong>Can I customize the agents?</strong></summary>
+
+Yes. They're just markdown files. Edit them in the plugin's `agents/` directory or create new ones.
+
+</details>
+
+<details>
+<summary><strong>What happens when context runs out?</strong></summary>
+
+Opus 4.6의 Compaction API가 서버사이드에서 자동으로 컨텍스트를 요약합니다. `/v-compress`는 상세 파일 백업용이고, `/v-continue`는 세션 간 복구에 사용됩니다.
+
+</details>
+
+<details>
+<summary><strong>Can I stop it mid-task?</strong></summary>
+
+Yes. `/cancel-vibe` stops the current session immediately.
+
+</details>
+
+<details>
+<summary><strong>Does it work with my existing project?</strong></summary>
+
+Yes. It reads your codebase, understands your patterns, and adapts.
+
+</details>
+
+---
+
+## File Structure
 
 ```
 vibe-claude/
 ├── .claude-plugin/    # Plugin metadata
-│   ├── plugin.json
-│   └── marketplace.json
 ├── agents/            # 13 specialized agents
-│   ├── v-analyst.md
-│   ├── v-worker.md
-│   ├── v-designer.md
-│   └── ...
 ├── skills/            # 11 enhancement skills
-│   ├── vibe/
-│   ├── v-turbo/
-│   ├── v-plan/
-│   ├── v-review/
-│   ├── v-debug/
-│   └── ...
 ├── commands/          # Slash commands
 │   ├── vibe.md
 │   ├── v-turbo.md
@@ -604,8 +560,6 @@ vibe-claude/
 │   ├── v-memory.md
 │   └── v-compress.md
 ├── hooks/             # Auto-execution hooks
-│   ├── hooks.json
-│   └── session-start.sh
 ├── scripts/           # Helper scripts
 │   ├── install.sh
 │   ├── auto-update.sh
@@ -628,25 +582,6 @@ claude plugin update vibe-claude
 
 ---
 
-## FAQ
-
-**Q: Do I need to know how to code?**
-A: No.
-
-**Q: What do I need to do?**
-A: Type `/vibe` and describe what you want.
-
-**Q: What if it doesn't work?**
-A: Claude retries automatically (up to 10 attempts by default).
-
-**Q: Is it expensive?**
-A: Yes. But it works.
-
-**Q: Can I customize the agents?**
-A: Yes. Edit the markdown files in `~/.claude/agents/`.
-
----
-
 ## The Vibe Coder Manifesto
 
 1. **Don't think, describe** - Say what you want, not how
@@ -654,6 +589,42 @@ A: Yes. Edit the markdown files in `~/.claude/agents/`.
 3. **Money solves problems** - Opus is worth it
 4. **Perfection is automatic** - Retries (max 10) until right
 5. **Evolution is constant** - System improves itself every day
+
+---
+
+## Architecture Diagram
+
+```
+┌───────────────────────────────────────────────────────┐
+│              VIBE-CLAUDE (Opus 4.6)                   │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│  /vibe "your request"                                 │
+│         ↓                                             │
+│  ┌───────────────────────────────────────────┐        │
+│  │  EFFORT-BASED ROUTING (Phase 0)           │        │
+│  │  TRIVIAL→low  SIMPLE→med  COMPLEX→max     │        │
+│  └───────────────────────────────────────────┘        │
+│         ↓                                             │
+│  ┌───────────────────────────────────────────┐        │
+│  │  AGENTS (13) + Adaptive Thinking          │        │
+│  │  Opus 4.6(6) + Sonnet 4.5(5) + Haiku(2)  │        │
+│  │  128K Output │ Compaction │ Streaming GA   │        │
+│  └───────────────────────────────────────────┘        │
+│         ↓                                             │
+│  ┌───────────────────────────────────────────┐        │
+│  │  SKILLS (11)                              │        │
+│  │  vibe, v-turbo, v-plan, v-review...       │        │
+│  └───────────────────────────────────────────┘        │
+│         ↓                                             │
+│      RESULT                                           │
+│         ↓                                             │
+│  Not perfect? → Retry (up to 10x)                     │
+│         ↓                                             │
+│      PROVEN DONE                                      │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -665,12 +636,9 @@ Pull requests welcome. Keep it simple. Keep it vibe.
 
 ## Inspired By
 
-This project draws inspiration from:
-
 - [opencode](https://github.com/anomalyco/opencode) - Open-source AI coding assistant
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code) - Official Anthropic documentation for Claude Code
-- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) - Multi-agent patterns and best practices
-- The open-source AI coding community
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) - Official Anthropic documentation
+- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) - Multi-agent patterns
 
 ---
 
@@ -686,4 +654,6 @@ Created with vibes by [@kks0488](https://github.com/kks0488)
 
 ---
 
-**Don't think. Just vibe. Claude does the rest.**
+<p align="center">
+  <strong>Don't think. Just vibe. Claude does the rest.</strong>
+</p>

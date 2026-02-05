@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-02-06: Opus 4.6 초강화 업데이트 (v3.0.0)
+
+### 변경 이유
+Claude Opus 4.6 출시에 따른 전체 시스템 업그레이드. Adaptive thinking, effort parameter (max), 128K output, Compaction API, fine-grained streaming GA 등 새 기능을 모든 에이전트와 스킬에 통합.
+
+### 주요 변경
+- **버전**: 2.1.0 → 3.0.0 (plugin.json, marketplace.json 동기화)
+- **시스템 파일**: DEFINITIONS.md, CLAUDE.md에 4.6 capabilities, effort routing, compaction strategy 추가
+- **에이전트 13개**: effort 레벨 추가 (Opus: max, Sonnet: high, Haiku: low), 4.6 Capabilities 섹션 추가
+- **스킬 11개**: Opus 4.6 기능 통합 (adaptive thinking, compaction, 128K output, streaming GA)
+- **README.md**: 뱃지 4.6, 설치 방법 플러그인 방식, Opus 4.6 기능 소개
+
+### 영향
+- Effort-based routing으로 비용 효율성 향상
+- Compaction API로 컨텍스트 관리 자동화
+- 128K output으로 대규모 작업 품질 향상
+
+---
+
 ## 2026-01-17: 문서 일관성 및 SSOT 개선
 
 ### 수정된 항목

@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "vibe-claude",
-      "description": "Multi-agent orchestration system with retry (max 10), context management, and proven completion",
-      "version": "1.2.0",
+      "description": "Multi-agent orchestration system powered by Opus 4.6 with adaptive thinking, effort routing, and proven completion",
+      "version": "3.0.0",
       "source": "./",
       "author": {
         "name": "kkaemo",

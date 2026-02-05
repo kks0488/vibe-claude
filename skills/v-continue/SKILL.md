@@ -52,6 +52,26 @@ Resume work from where the previous session left off.
 Continue working automatically
 ```
 
+## Opus 4.6 + Compaction 시너지
+
+### Compaction-Aware Resume
+
+```
+기존 (4.5):
+  Session end → checkpoint 파일 저장 → /v-continue로 파일 읽기
+
+지금 (Opus 4.6 + Compaction):
+  Session end → Compaction API가 자동으로 컨텍스트 보존
+  + checkpoint 파일 = 이중 안전망
+  → /v-continue 시 Compaction 요약 + 파일 기반 상세 복구
+```
+
+### 향상된 복구 품질
+
+- **128K Output**: 복구 시 더 포괄적인 상태 요약 가능
+- **Adaptive Thinking**: 복구 우선순위 자동 판단 (어디부터 재개할지)
+- **Compaction**: 이전 세션의 핵심 컨텍스트가 서버에 자동 보존
+
 ## File Search Order
 
 1. `.vibe/work-*.md` (most recent by timestamp)

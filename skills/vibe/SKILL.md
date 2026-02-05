@@ -20,21 +20,74 @@ NEVER. FORGET.
 CONTEXT IS PRECIOUS.
 ```
 
+## Claude 4.6 Power Upgrades
+
+> **Opus 4.6은 vibe의 모든 것을 초강화한다.**
+
+### Adaptive Thinking
+
+모든 Phase에서 adaptive thinking 자동 활성화:
+```
+Phase 0: Routing → effort: low (즉시 분류)
+Phase 0.5: Interview → effort: high (깊은 이해)
+Phase 1: Recon → effort: high/max (철저한 분석)
+Phase 2: Planning → effort: max (완벽한 계획)
+Phase 3: Execution → effort: high (품질 있는 구현)
+Phase 4: Verification → effort: max (타협 없는 검증)
+Phase 5: Polish → effort: medium (효율적 마무리)
+```
+
+### Effort-Based Agent Dispatch
+
+| Complexity | Effort | Agent Tier | Thinking |
+|------------|--------|------------|----------|
+| TRIVIAL | `low` | Haiku | Minimal - 즉시 실행 |
+| SIMPLE | `medium` | Sonnet | Balanced - 적절한 분석 |
+| MODERATE | `high` | Sonnet/Opus | Deep - 심층 분석 |
+| COMPLEX | `max` | Opus | Maximum - 가장 깊은 사고 |
+
+### 128K Output
+
+- 이전: 64K 제한으로 긴 분석/코드 잘림
+- **지금: 128K로 2배** — 대규모 기능 전체를 한 번에 생성
+- COMPLEX 작업에서 Planning + Execution 품질 극적 향상
+
+### Compaction Integration (서버사이드)
+
+```
+기존: Context 40% → /v-compress (수동)
+지금: Compaction API가 자동으로 서버사이드 요약
+  → 이전 대화 자동 압축
+  → 현재 작업 컨텍스트 보존
+  → 사실상 무한 대화 가능
+
+/v-compress = Compaction 보조 (상세 파일 저장)
+Compaction API = 자동 컨텍스트 관리 (서버)
+```
+
+### Fine-grained Tool Streaming (GA)
+
+- Phase 3에서 코드 생성 실시간 모니터링
+- Phase 4에서 테스트 결과 즉각 스트리밍
+- 더 이상 beta 헤더 불필요
+
 ---
 
 ## Context Management (CRITICAL)
 
 > **"컨텍스트 윈도우는 가장 중요한 자원이다."**
 
-### Context Budget Visualization
+### Context Budget Visualization (Compaction-Enhanced)
 
 ```
 100% ████████████████████ Fresh session
- 80% ████████████████░░░░ Healthy
- 60% ████████████░░░░░░░░ Caution - consider /v-compress
- 40% ████████░░░░░░░░░░░░ WARNING - compress or checkpoint
- 20% ████░░░░░░░░░░░░░░░░ DANGER ZONE - /clear recommended
+ 80% ████████████████░░░░ Healthy (Compaction standby)
+ 60% ████████████░░░░░░░░ Compaction API 자동 요약 시작
+ 40% ████████░░░░░░░░░░░░ /v-compress 보조 (상세 파일 저장)
+ 20% ████░░░░░░░░░░░░░░░░ Checkpoint → /v-continue 준비
 ```
+
+> **Claude 4.6 + Compaction = 컨텍스트 걱정 대폭 감소**
 
 ### Context Preservation Rules
 

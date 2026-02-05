@@ -11,6 +11,44 @@ Speed isn't everything. It's the only thing.
 
 Sequential is slow. Parallel is power. When this skill activates, everything that CAN run simultaneously WILL run simultaneously.
 
+## Claude 4.6 Turbo Enhancements
+
+### Fine-grained Tool Streaming (GA)
+
+```
+기존: Beta 헤더 필요, 제한적 스트리밍
+지금: GA — 모든 모델, 모든 플랫폼에서 완전 지원
+
+효과:
+├─ 병렬 에이전트 실행 중 실시간 진행 모니터링
+├─ 긴 코드 생성 시 즉각적 부분 결과 확인
+├─ 빌드/테스트 결과 실시간 스트리밍
+└─ 대기 시간 체감 대폭 감소
+```
+
+### Effort-Based Parallelism
+
+```
+COMPLEX 작업의 Phase 1:
+├─ v-analyst (effort: max) — 깊은 분석
+├─ v-finder (effort: low) — 즉시 검색
+├─ v-researcher (effort: high) — 심층 리서치
+├─ v-advisor (effort: max) — 위험 분석
+└─ ALL PARALLEL + 각 에이전트 최적 effort
+
+Phase 3 Fan-Out:
+├─ v-worker-1 (effort: high) — 기능 A
+├─ v-worker-2 (effort: high) — 기능 B
+├─ v-designer (effort: high) — UI
+└─ Background: builds, tests (streaming)
+```
+
+### 128K Output Parallel
+
+- 각 에이전트가 128K까지 출력 가능
+- Fan-Out 패턴에서 개별 워커의 출력 제한 해소
+- 대규모 배치 작업의 단일 패스 완료율 향상
+
 ## Activation Triggers
 
 - Multiple independent tasks detected
@@ -51,15 +89,15 @@ Uncertain which approach?
 
 ## Agent Dispatch Matrix
 
-| Task | Agent | Model | Background? |
-|------|-------|-------|-------------|
-| Deep analysis | v-analyst | Opus | No (need result) |
-| Quick search | v-finder | Haiku | No (fast anyway) |
-| Code writing | v-worker | Sonnet | No (need result) |
-| UI work | v-designer | Sonnet | No |
-| Documentation | v-writer | Haiku | Yes (can wait) |
-| Build/test | - | - | Yes |
-| Install deps | - | - | Yes |
+| Task | Agent | Model | Effort | Background? |
+|------|-------|-------|--------|-------------|
+| Deep analysis | v-analyst | Opus | max | No (need result) |
+| Quick search | v-finder | Haiku | low | No (fast anyway) |
+| Code writing | v-worker | Sonnet | high | No (need result) |
+| UI work | v-designer | Sonnet | high | No |
+| Documentation | v-writer | Haiku | low | Yes (can wait) |
+| Build/test | - | - | - | Yes |
+| Install deps | - | - | - | Yes |
 
 ## Background Execution Rules
 
@@ -143,4 +181,4 @@ Total time: 2 minutes (vs 4+ minutes sequential)
 - Combine results intelligently
 - **Show parallel execution timestamps as evidence**
 
-**Maximum throughput. Zero idle time. PROVEN velocity.**
+**Maximum throughput. Zero idle time. 128K output. Streaming GA. PROVEN velocity.**

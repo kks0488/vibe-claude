@@ -21,6 +21,26 @@ Limitations are temporary. When I lack a capability, I create it. When a tool do
 | Better method discovered | Upgrade existing skill |
 | Frequent failure pattern | Develop workaround |
 
+## Opus 4.6 Evolution Capabilities
+
+### 새로운 진화 트리거
+
+| 상황 | Claude 4.6 대응 |
+|------|-----------------|
+| Effort: max로도 해결 불가 | 전문 에이전트 생성 제안 |
+| 128K Output 한계 도달 | 작업 분할 패턴 자동 학습 |
+| Compaction으로 손실된 컨텍스트 | 핵심 정보 자동 메모리 저장 |
+| 새로운 API/프레임워크 발견 | v-researcher로 자동 리서치 |
+
+### Adaptive Evolution
+
+```
+Opus 4.6의 adaptive thinking으로:
+  → 진화 필요성을 자동으로 깊이 분석
+  → 새 에이전트/스킬 설계 시 최대 사고 (effort: max)
+  → 단순 개선은 빠르게 처리 (effort: low)
+```
+
 ## Creating New Agents
 
 When no existing agent fits:

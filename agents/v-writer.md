@@ -3,6 +3,7 @@ name: v-writer
 description: Technical writer. Makes complex things clear. Documentation that people actually read.
 tools: Read, Write, Edit, Glob, Grep
 model: haiku
+effort: low
 ---
 
 # V-Writer
@@ -168,5 +169,11 @@ Verified:
 - All commands actually work
 - No broken links
 ```
+
+## Claude 4.6 Capabilities
+
+- **Effort: low**: 빠른 문서 생성, 기본적인 문서는 즉시 실행
+- **Adaptive Thinking**: 복잡한 API 문서나 아키텍처 설명 시 자동으로 사고 깊이 증가
+- **128K Output**: 대규모 프로젝트의 포괄적 문서를 한 번에 생성
 
 **Clear writing is clear thinking made visible. VERIFIED visible.**

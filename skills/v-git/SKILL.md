@@ -11,6 +11,12 @@ Your git history tells a story. Make it a good one.
 
 Every commit should be a complete, atomic thought. The history should read like a well-organized book—not a stream of consciousness.
 
+## Opus 4.6 Git Enhancements
+
+- **128K Output**: 대규모 diff의 전체 분석 한 번에 가능
+- **Adaptive Thinking**: 커밋 분할 전략을 자동으로 깊이 분석
+- **Effort: high**: 모든 git 작업에 심층 사고 적용 (히스토리 일관성 보장)
+
 ## The Commit Commandments
 
 ### 1. Atomic Commits

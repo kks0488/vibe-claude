@@ -10,14 +10,22 @@ description: 컨텍스트 자동 압축 - 완료된 Phase 요약으로 세션 2-
 ## 핵심 원리
 
 ```
-완료된 Phase → 상세 파일 저장 + 요약만 대화에 유지
-현재 Phase → 전체 컨텍스트 유지
+Claude 4.6 Compaction API (서버사이드):
+  → 컨텍스트 한계 접근 시 서버가 자동 요약
+  → 이전 대화 내용 자동 압축
+  → 사실상 무한 대화 가능
+
+/v-compress (클라이언트사이드 보조):
+  → 완료된 Phase 상세 내용 → 파일로 저장
+  → 요약만 대화에 유지
+  → Compaction API와 병행하여 이중 안전망
 ```
 
 ## 사용 시점
 
-- Phase 전환 시 이전 Phase 요약
-- 대화가 길어져서 정리 필요할 때
+- Compaction API가 자동 관리하지만, 상세 기록이 필요할 때 수동 실행
+- Phase 전환 시 이전 Phase의 상세 파일 저장
+- 긴 세션에서 파일 기반 백업이 필요할 때
 - `/v-compress` 명령으로 수동 실행
 
 ## 압축 대상
@@ -78,6 +86,54 @@ description: 컨텍스트 자동 압축 - 완료된 Phase 요약으로 세션 2-
 Phase 1 압축됨
 상세: .vibe/phase1-detail.md
 ```
+
+## Compaction API Integration (Claude 4.6)
+
+### 자동 vs 수동 압축
+
+| 방식 | 주체 | 시점 | 효과 |
+|------|------|------|------|
+| Compaction API | 서버 (자동) | 컨텍스트 한계 접근 시 | 이전 대화 자동 요약 |
+| /v-compress | 클라이언트 (수동) | Phase 전환 시 | 상세 내용 파일 저장 |
+
+### 하이브리드 전략
+
+```
+Context 100-60%:
+  → Compaction API standby
+  → 정상 작업
+
+Context 60-40%:
+  → Compaction API 자동 요약 시작
+  → /v-compress로 Phase 상세 파일 저장
+
+Context 40-20%:
+  → Compaction + /v-compress 병행
+  → Checkpoint 생성
+
+Context 20%:
+  → /v-continue 준비
+  → 세션 핸드오프
+```
+
+### Context Budget (Compaction-Enhanced)
+
+```
+기존 (4.5):
+100% ████████████████████ Fresh
+ 60% → Manual compress needed
+ 40% → WARNING
+ 20% → DANGER
+
+지금 (4.6 + Compaction):
+100% ████████████████████ Fresh
+ 80% → Compaction standby
+ 60% → Compaction 자동 요약
+ 40% → /v-compress 보조
+ 20% → /v-continue 준비
+```
+
+> **Compaction API가 대부분의 컨텍스트 관리를 자동화. /v-compress는 파일 기반 상세 백업.**
 
 ## Rules
 

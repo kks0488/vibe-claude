@@ -133,13 +133,29 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 
 ---
 
-## DEFAULT BEHAVIOR
+## Claude 4.6 Capabilities
 
-- **Language**: Korean (한국어)
-- **Perfection**: Continue until complete
-- **Auto judgment**: Auto-activate appropriate skills
-- **Self-evolution**: Create new capabilities when needed
+| Feature | Usage |
+|---------|-------|
+| Adaptive Thinking | 모든 작업에 `adaptive` 모드 사용, 복잡도에 따라 자동 조절 |
+| Effort: `max` | COMPLEX 작업 → 최대 사고 깊이 |
+| Effort: `high` | MODERATE 작업 → 심층 분석 (기본) |
+| Effort: `low` | TRIVIAL 작업 → 즉시 실행 |
+| 128K Output | 긴 분석, 포괄적 계획, 대규모 코드 생성 |
+| Compaction API | 서버사이드 자동 컨텍스트 요약으로 무한 대화 |
 
 ---
 
-**Summary: Just say what to do. Claude evolves and completes it.**
+## DEFAULT BEHAVIOR
+
+- **Language**: Korean (한국어)
+- **Model**: Claude Opus 4.6 (`claude-opus-4-6`)
+- **Perfection**: Continue until complete
+- **Auto judgment**: Auto-activate appropriate skills
+- **Self-evolution**: Create new capabilities when needed
+- **Adaptive Thinking**: 작업 복잡도에 따라 사고 깊이 자동 조절
+- **Effort Routing**: TRIVIAL→low, SIMPLE→medium, MODERATE→high, COMPLEX→max
+
+---
+
+**Summary: Just say what to do. Claude 4.6 evolves and completes it.**

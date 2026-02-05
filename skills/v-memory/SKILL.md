@@ -50,6 +50,29 @@ MEMU_API=http://localhost:8100
 MEMU_USER_ID=vibe-claude
 ```
 
+## Opus 4.6 Memory Enhancements
+
+### Compaction + Memory 시너지
+
+```
+Compaction API가 컨텍스트 요약 시:
+  → 핵심 lesson/pattern 자동 감지
+  → /v-memory save 자동 트리거 제안
+  → 중요 정보 손실 방지
+
+128K Output:
+  → 더 포괄적인 메모리 검색 결과 반환
+  → 관련 메모리 간 연결 관계까지 분석
+```
+
+### 향상된 자동 저장
+
+| 상황 | 기존 (4.5) | 지금 (Opus 4.6) |
+|------|-----------|-----------------|
+| 실패 → 해결 | 2회 재시도 후 저장 | Adaptive thinking으로 실패 패턴 깊이 분석 후 저장 |
+| 아키텍처 결정 | 수동 저장 | Effort: max로 결정 근거까지 자동 문서화 |
+| Compaction 발생 | N/A | 요약 전 핵심 정보 메모리에 자동 백업 |
+
 ## 저장 위치
 
 ```

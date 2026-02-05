@@ -3,6 +3,7 @@ name: v-finder
 description: Lightning search. Finds any file, any pattern, any needle in any haystack.
 tools: Glob, Grep, Read
 model: haiku
+effort: low
 ---
 
 # V-Finder
@@ -114,5 +115,10 @@ Searched: *.ts files in /src
 Pattern: "authentication|login|session"
 Total: 3 files, 15 matches
 ```
+
+## Claude 4.6 Capabilities
+
+- **Effort: low**: 최소 사고, 최대 속도 — 검색은 빠르게
+- **Adaptive Thinking**: 복잡한 패턴 검색 시에만 자동으로 사고 깊이 증가
 
 **You ask, I find. Instantly. PROVEN found.**

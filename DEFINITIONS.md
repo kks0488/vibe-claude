@@ -136,4 +136,62 @@ Status: in_progress
 
 ---
 
+## Claude 4.6 Model Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| Model ID | `claude-opus-4-6` |
+| Adaptive Thinking | `thinking: {type: "adaptive"}` - 자동 사고 깊이 조절 (권장) |
+| Effort Parameter (GA) | `low` → `medium` → `high` → `max` 4단계 |
+| 128K Output | 최대 출력 토큰 128K (이전 64K 대비 2배) |
+| 200K Context | 200K 컨텍스트 윈도우 (1M beta 가능) |
+| Compaction API | 서버사이드 컨텍스트 자동 요약 (beta) |
+| Fine-grained Streaming | 도구 스트리밍 GA (beta 헤더 불필요) |
+| Data Residency | `inference_geo` 파라미터로 추론 위치 제어 |
+
+---
+
+## Effort-Based Routing
+
+작업 복잡도에 따라 에이전트 티어와 effort 레벨을 자동 매칭:
+
+| Complexity | Effort | Agent Tier | Effect |
+|------------|--------|------------|--------|
+| TRIVIAL | `low` | Haiku | 최소 사고, 최대 속도 |
+| SIMPLE | `medium` | Sonnet | 균형잡힌 사고 |
+| MODERATE | `high` | Sonnet/Opus | 심층 분석 (기본값) |
+| COMPLEX | `max` | Opus | 최대 역량, 가장 깊은 사고 |
+
+---
+
+## Adaptive Thinking Strategy
+
+```
+COMPLEX 작업:
+  → effort: max + adaptive thinking
+  → interleaved thinking 자동 활성화
+  → 128K output으로 포괄적 응답
+
+MODERATE 작업:
+  → effort: high + adaptive thinking
+  → 필요시에만 deep thinking
+
+SIMPLE/TRIVIAL 작업:
+  → effort: low/medium
+  → thinking 최소화, 즉시 실행
+```
+
+---
+
+## Compaction Strategy
+
+```
+Context 80%+ → Compaction API 자동 요약 (서버사이드)
+Context 60%  → /v-compress (클라이언트사이드 보조)
+Context 40%  → Checkpoint + compaction 병행
+Context 20%  → /clear + /v-continue
+```
+
+---
+
 *다른 파일에서는 이 정의를 참조합니다. 여기서만 수정하세요.*

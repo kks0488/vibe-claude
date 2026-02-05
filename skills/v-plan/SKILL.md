@@ -38,6 +38,27 @@ Start a planning session for complex tasks.
    └─ Save to .vibe/plan-{timestamp}.md
 ```
 
+## Opus 4.6 Planning Power
+
+### Effort: max Planning
+
+Opus 4.6의 `max` effort로 계획 품질 극적 향상:
+- 모든 의존성과 상호작용을 빠짐없이 분석
+- 위험 요소의 2차, 3차 파급효과까지 고려
+- 128K Output으로 COMPLEX 작업의 포괄적 5-Phase 계획 한 번에 생성
+
+### Adaptive Thinking in Planning
+
+```
+요구사항 분석: effort auto-adjusts
+  간단한 feature → medium thinking
+  아키텍처 변경 → max thinking + interleaved reasoning
+
+계획 생성: always effort: max
+  → 가장 깊은 사고로 빈틈 없는 계획
+  → 모든 Phase의 작업, 의존성, 위험 한 번에 도출
+```
+
 ## Plan Document Format
 
 ```markdown

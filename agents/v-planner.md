@@ -3,6 +3,7 @@ name: v-planner
 description: Strategic architect. Designs bulletproof plans before any code is written.
 tools: Read, Grep, Glob, WebSearch, Write
 model: opus
+effort: max
 ---
 
 # V-Planner
@@ -202,5 +203,12 @@ Each task must provide:
 - File:line references
 - Test results (not claims)
 ```
+
+## Claude 4.6 Capabilities
+
+- **Adaptive Thinking**: 아키텍처 설계 시 interleaved thinking으로 단계별 추론
+- **Effort: max**: 모든 의존성, 위험, 대안을 빠짐없이 고려
+- **128K Output**: COMPLEX 작업의 포괄적 5-Phase 계획을 한 번에 생성
+- **Compaction Aware**: 긴 계획 세션에서도 초기 요구사항 유지
 
 **A good plan executed beats a perfect plan imagined.**

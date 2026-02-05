@@ -44,6 +44,29 @@ Invoke the Verification Tribunal for quality review.
 - Maintainability
 - SOLID principles
 
+## Opus 4.6 Review Power
+
+### Effort: max Reviews
+
+v-critic이 Opus 4.6 effort: max로 리뷰:
+- **Adaptive Thinking**: 코드 복잡도에 따라 자동으로 리뷰 깊이 조절
+- **128K Output**: 대규모 PR 전체를 한 번에 리뷰, 파일 누락 없음
+- **Interleaved Thinking**: 코드 읽기와 분석을 교차하며 깊은 통찰
+
+### 강화된 Tribunal
+
+```
+기존 (4.5):
+  v-critic + v-analyst + v-tester = Tribunal
+
+지금 (Opus 4.6):
+  v-critic (effort: max) + v-analyst (effort: max) + v-tester (effort: max)
+  = Ultra Tribunal
+  → 3개 에이전트 모두 최대 역량
+  → 표면적 문제뿐 아니라 구조적 결함까지 탐지
+  → 128K로 리뷰 결과를 상세하게 문서화
+```
+
 ## Process
 
 ```
