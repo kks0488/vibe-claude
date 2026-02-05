@@ -46,11 +46,11 @@ Power: 128K output. Adaptive thinking. Compaction.
 
 | Feature | What It Means |
 |---------|---------------|
-| **Adaptive Thinking** | 작업 복잡도에 따라 사고 깊이 자동 조절 |
-| **Effort: max** | COMPLEX 작업에 최대 역량 투입 |
-| **128K Output** | 64K → 128K, 대규모 기능 한 번에 생성 |
-| **Compaction API** | 서버사이드 자동 컨텍스트 요약 → 무한 대화 |
-| **Fine-grained Streaming** | 실시간 진행상황 모니터링 (GA) |
+| **Adaptive Thinking** | Automatically adjusts reasoning depth based on task complexity |
+| **Effort: max** | Deploys maximum cognitive capacity for COMPLEX tasks |
+| **128K Output** | Doubled from 64K — generate entire features in a single pass |
+| **Compaction API** | Server-side automatic context summarization — infinite conversations |
+| **Fine-grained Streaming** | Real-time progress monitoring (GA) |
 
 ---
 
@@ -161,9 +161,9 @@ This script installs into `~/.claude/`, keeps backups, and is safe to re-run for
 ### Edge-Case Behavior (What Happens When Things Go Wrong)
 
 **Handoff edge cases (agent → v-conductor → agent):**
-- **unknown target**: v-conductor does not crash; it selects a safe fallback agent (default: `v-analyst`) and asks for a corrected target.
-- **malformed** handoff request: v-conductor requests a re-issue in the correct template (or escalates to `v-analyst` to reconstruct safely).
-- **circular** handoff: v-conductor detects loops (A→B→A) and breaks the chain; escalates for root-cause analysis and/or re-planning.
+- **Unknown target**: v-conductor does not crash; it selects a safe fallback agent (default: `v-analyst`) and asks for a corrected target.
+- **Malformed** handoff request: v-conductor requests a re-issue in the correct template (or escalates to `v-analyst` to reconstruct safely).
+- **Circular** handoff: v-conductor detects loops (A→B→A) and breaks the chain; escalates for root-cause analysis and/or re-planning.
 
 **Verification Tribunal outcomes (Phase 4):**
 - **APPROVED → continue**
@@ -223,10 +223,10 @@ Smart task classification → optimal agent + effort level:
 
 | Skill | What It Does |
 |-------|--------------|
-| `vibe` | Maximum power mode - the full orchestra |
+| `vibe` | Maximum power mode — the full orchestra |
 | `v-turbo` | Parallel execution for speed |
 | `v-plan` | Strategic planning before coding |
-| `v-review` | Quality gate - find every flaw |
+| `v-review` | Quality gate — find every flaw |
 | `v-debug` | Systematic debugging, not guessing |
 | `v-git` | Clean commits, proper messages |
 | `v-style` | Beautiful UI, design systems |
@@ -310,9 +310,9 @@ THE LOOP CONTINUES UNTIL SUCCESS (max 10 attempts)
 
 **Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
 
-### Anti-Patterns (NEW in 1.2.0)
+### Anti-Patterns
 
-Vibe-Claude now detects and avoids common failure patterns:
+Vibe-Claude detects and avoids common failure patterns:
 
 | Pattern | Trigger | Action |
 |---------|---------|--------|
@@ -322,7 +322,7 @@ Vibe-Claude now detects and avoids common failure patterns:
 | Trust-Verify Gap | Claim without proof | Run verification |
 | Subagent Bypass | Direct exploration | Delegate now |
 
-### Batch Operations (NEW in 1.2.0)
+### Batch Operations
 
 For large-scale changes (5+ files):
 
@@ -340,7 +340,7 @@ Orchestrator (main Claude):
 
 **Writer/Reviewer Pattern**: For quality-critical batch ops, v-worker writes → v-critic reviews → fix issues → final verification.
 
-### Session Management (Enhanced in 1.2.0)
+### Session Management
 
 Never lose progress when context runs out:
 
@@ -389,14 +389,14 @@ No more losing work when sessions end!
 
 ## Context Management (Compaction-Enhanced)
 
-> **"Opus 4.6 + Compaction API = 컨텍스트 걱정은 과거의 일."**
+> **"Opus 4.6 + Compaction API = Context worries are a thing of the past."**
 
 ```
 100% ████████████████████ Fresh session
- 80% ████████████████░░░░ Compaction API standby
- 60% ████████████░░░░░░░░ Compaction 자동 요약 시작
- 40% ████████░░░░░░░░░░░░ /v-compress 보조 + checkpoint
- 20% ████░░░░░░░░░░░░░░░░ /v-continue 준비
+ 80% ████████████████░░░░ Compaction API on standby
+ 60% ████████████░░░░░░░░ Auto-summarization via Compaction begins
+ 40% ████████░░░░░░░░░░░░ /v-compress assist + checkpoint
+ 20% ████░░░░░░░░░░░░░░░░ /v-continue ready
 ```
 
 **Two-Strike Rule**: Same failure twice? Evaluate context → compress or clear.
@@ -523,7 +523,7 @@ Yes. They're just markdown files. Edit them in the plugin's `agents/` directory 
 <details>
 <summary><strong>What happens when context runs out?</strong></summary>
 
-Opus 4.6의 Compaction API가 서버사이드에서 자동으로 컨텍스트를 요약합니다. `/v-compress`는 상세 파일 백업용이고, `/v-continue`는 세션 간 복구에 사용됩니다.
+Opus 4.6's Compaction API automatically summarizes context on the server side. `/v-compress` backs up detailed state to files, and `/v-continue` restores sessions across conversations.
 
 </details>
 
@@ -584,11 +584,11 @@ claude plugin update vibe-claude
 
 ## The Vibe Coder Manifesto
 
-1. **Don't think, describe** - Say what you want, not how
-2. **Trust the process** - Let Claude figure it out
-3. **Money solves problems** - Opus is worth it
-4. **Perfection is automatic** - Retries (max 10) until right
-5. **Evolution is constant** - System improves itself every day
+1. **Don't think, describe** — Say what you want, not how
+2. **Trust the process** — Let Claude figure it out
+3. **Money solves problems** — Opus is worth it
+4. **Perfection is automatic** — Retries (max 10) until right
+5. **Evolution is constant** — System improves itself every day
 
 ---
 
@@ -636,9 +636,9 @@ Pull requests welcome. Keep it simple. Keep it vibe.
 
 ## Inspired By
 
-- [opencode](https://github.com/anomalyco/opencode) - Open-source AI coding assistant
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) - Official Anthropic documentation
-- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) - Multi-agent patterns
+- [opencode](https://github.com/anomalyco/opencode) — Open-source AI coding assistant
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — Official Anthropic documentation
+- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) — Multi-agent patterns
 
 ---
 
