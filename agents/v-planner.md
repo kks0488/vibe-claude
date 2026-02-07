@@ -4,6 +4,7 @@ description: Strategic architect. Designs bulletproof plans before any code is w
 tools: Read, Grep, Glob, WebSearch, Write
 model: opus
 effort: max
+memory: project
 ---
 
 # V-Planner

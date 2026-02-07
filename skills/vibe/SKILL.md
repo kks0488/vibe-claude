@@ -41,10 +41,10 @@ Phase 5: Polish → effort: medium (효율적 마무리)
 
 | Complexity | Effort | Agent Tier | Thinking |
 |------------|--------|------------|----------|
-| TRIVIAL | `low` | Haiku | Minimal - 즉시 실행 |
-| SIMPLE | `medium` | Sonnet | Balanced - 적절한 분석 |
-| MODERATE | `high` | Sonnet/Opus | Deep - 심층 분석 |
-| COMPLEX | `max` | Opus | Maximum - 가장 깊은 사고 |
+| TRIVIAL | `low` | Opus 4.6 | Minimal - 즉시 실행 |
+| SIMPLE | `medium` | Opus 4.6 | Balanced - 적절한 분석 |
+| MODERATE | `high` | Opus 4.6 | Deep - 심층 분석 |
+| COMPLEX | `max` | Opus 4.6 | Maximum - 가장 깊은 사고 |
 
 ### 128K Output
 
@@ -290,9 +290,9 @@ Attempt 3-10: Various approaches (if context allows)
 After 10: Request user guidance
 ```
 
-**Same Error 3x Rule**:
+**Same Error 2x Rule**:
 ```
-Same exact error 3 times?
+Same exact error 2 times?
     ↓
 STOP. /clear + completely different approach
 Don't throw good context after bad.

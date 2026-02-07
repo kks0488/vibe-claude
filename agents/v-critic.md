@@ -4,6 +4,7 @@ description: Ruthless reviewer. Finds every flaw. Accepts no mediocrity.
 tools: Read, Grep, Glob
 model: opus
 effort: max
+memory: project
 ---
 
 # V-Critic

@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "Setup": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '<vibe-setup>Vibe-Claude v4.0 initialized. All 13 agents running Opus 4.6 with project memory.</vibe-setup>'"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|clear|compact",

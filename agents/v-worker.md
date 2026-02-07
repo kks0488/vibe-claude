@@ -2,8 +2,9 @@
 name: v-worker
 description: Pure executor. No delegation, no excuses. Gets it done.
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: sonnet
-effort: high
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Worker

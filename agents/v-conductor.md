@@ -1,9 +1,10 @@
 ---
 name: v-conductor
 description: Master orchestrator. Routes tasks to the right agent. Never works directly.
-tools: Task, TodoWrite, Read, Grep, Glob
+tools: Task, TaskCreate, TaskUpdate, TaskList, Read, Grep, Glob
 model: opus
-effort: high
+effort: max
+memory: project
 ---
 
 # V-Conductor
@@ -170,17 +171,15 @@ User: "Find the auth bug and fix it"
 ### Escalation Protocol
 
 ```
-haiku agent fails
+Agent fails
     ↓
-Retry with sonnet
+Retry with refined context
     ↓
-sonnet fails
-    ↓
-Retry with opus
-    ↓
-opus fails
+Still fails
     ↓
 Try completely different approach
+    ↓
+Escalate to user
 ```
 
 ### 🔴 핸드오프 요청 (Handoff Request)
@@ -388,12 +387,14 @@ ALL PHASES COMPLETE. EVIDENCE PROVIDED.
 
 에이전트 디스패치 시 effort 레벨을 작업 복잡도에 매핑:
 
-| Complexity | Effort | Agent Tier | Rationale |
-|------------|--------|------------|-----------|
-| TRIVIAL | `low` | Haiku | 즉시 실행, 사고 최소화 |
-| SIMPLE | `medium` | Sonnet | 균형잡힌 분석과 실행 |
-| MODERATE | `high` | Sonnet/Opus | 심층 분석 필요 |
-| COMPLEX | `max` | Opus | 최대 역량, 가장 깊은 사고 |
+| Complexity | Effort | Rationale |
+|------------|--------|-----------|
+| TRIVIAL | `low` | 즉시 실행, 사고 최소화 |
+| SIMPLE | `medium` | 균형잡힌 분석과 실행 |
+| MODERATE | `high` | 심층 분석 필요 |
+| COMPLEX | `max` | 최대 역량, 가장 깊은 사고 |
+
+> All 13 agents run on Opus 4.6. Effort level controls thinking depth, not model tier.
 
 ### Compaction-Aware Orchestration
 

@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://claude.ai"><img src="https://img.shields.io/badge/Claude-Code-blueviolet" alt="Claude Code"></a>
-  <a href="#"><img src="https://img.shields.io/badge/v3.0.0-Opus%204.6-orange" alt="v3.0.0"></a>
+  <a href="#"><img src="https://img.shields.io/badge/v4.0.0-Opus%204.6-orange" alt="v4.0.0"></a>
   <a href="#"><img src="https://img.shields.io/badge/Agents-13-blue" alt="13 Agents"></a>
   <a href="#"><img src="https://img.shields.io/badge/Skills-11-green" alt="11 Skills"></a>
   <a href="#"><img src="https://img.shields.io/badge/128K%20Output-Adaptive%20Thinking-brightgreen" alt="128K Output"></a>
@@ -183,41 +183,36 @@ Vibe-Claude isn't just one AI. It's a team:
 │              AGENT HIERARCHY (Opus 4.6)                  │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
-│  🧠 OPUS 4.6 TIER (effort: max) - 6 agents               │
+│  OPUS 4.6 TIER - ALL 13 agents                           │
 │  ├─ v-analyst    → Deep debugging, root cause            │
 │  ├─ v-planner    → Strategy, architecture                │
 │  ├─ v-critic     → Ruthless code review                  │
 │  ├─ v-advisor    → Risk analysis                         │
 │  ├─ v-conductor  → Orchestration + effort routing        │
-│  └─ v-tester     → Edge case verification                │
-│  ★ Adaptive Thinking + 128K Output + Compaction          │
-│                                                          │
-│  ⚡ SONNET 4.5 TIER (effort: high) - 5 agents             │
+│  ├─ v-tester     → Edge case verification                │
 │  ├─ v-worker     → Code implementation                   │
 │  ├─ v-designer   → UI/UX, styling                        │
 │  ├─ v-researcher → Codebase analysis                     │
 │  ├─ v-vision     → Screenshot analysis                   │
-│  └─ v-api-tester → API endpoint testing                  │
-│  ★ Fine-grained Streaming GA                             │
-│                                                          │
-│  🚀 HAIKU 4.5 TIER (effort: low) - 2 agents              │
+│  ├─ v-api-tester → API endpoint testing                  │
 │  ├─ v-finder     → Fast file search                      │
 │  └─ v-writer     → Documentation                         │
-│  ★ Maximum speed, minimal overhead                       │
+│  ★ Adaptive Thinking + 128K Output + Compaction          │
+│  ★ Fine-grained Streaming GA                             │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Effort-Based Routing (New in v3.0.0)
+### Effort-Based Routing (New in v4.0.0)
 
-Smart task classification → optimal agent + effort level:
+Smart task classification → optimal effort level (all agents are Opus 4.6):
 
-| Complexity | Effort | Agents | Thinking |
-|------------|--------|--------|----------|
-| TRIVIAL | `low` | Haiku | Minimal |
-| SIMPLE | `medium` | Sonnet | Balanced |
-| MODERATE | `high` | Sonnet/Opus | Deep |
-| COMPLEX | `max` | Opus 4.6 | Maximum |
+| Complexity | Effort | Thinking |
+|------------|--------|----------|
+| TRIVIAL | `low` | Minimal |
+| SIMPLE | `medium` | Balanced |
+| MODERATE | `high` | Deep |
+| COMPLEX | `max` | Maximum |
 
 ### The 11 Skills
 
@@ -308,7 +303,7 @@ THE LOOP CONTINUES UNTIL SUCCESS (max 10 attempts)
 (or you say /cancel-vibe)
 ```
 
-**Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
+**Same Error 2x Rule**: Same exact error 2 times? STOP. `/clear` + completely different approach.
 
 ### Anti-Patterns
 
@@ -608,7 +603,7 @@ claude plugin update vibe-claude
 │         ↓                                             │
 │  ┌───────────────────────────────────────────┐        │
 │  │  AGENTS (13) + Adaptive Thinking          │        │
-│  │  Opus 4.6(6) + Sonnet 4.5(5) + Haiku(2)  │        │
+│  │  All 13 agents — Opus 4.6                │        │
 │  │  128K Output │ Compaction │ Streaming GA   │        │
 │  └───────────────────────────────────────────┘        │
 │         ↓                                             │

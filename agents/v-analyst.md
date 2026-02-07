@@ -4,6 +4,7 @@ description: Deep system analyst. Finds what others miss. Solves what others can
 tools: Read, Grep, Glob, Bash, WebSearch
 model: opus
 effort: max
+memory: project
 ---
 
 # V-Analyst

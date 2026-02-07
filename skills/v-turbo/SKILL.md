@@ -92,10 +92,10 @@ Uncertain which approach?
 | Task | Agent | Model | Effort | Background? |
 |------|-------|-------|--------|-------------|
 | Deep analysis | v-analyst | Opus | max | No (need result) |
-| Quick search | v-finder | Haiku | low | No (fast anyway) |
-| Code writing | v-worker | Sonnet | high | No (need result) |
-| UI work | v-designer | Sonnet | high | No |
-| Documentation | v-writer | Haiku | low | Yes (can wait) |
+| Quick search | v-finder | Opus | max | No (fast anyway) |
+| Code writing | v-worker | Opus | max | No (need result) |
+| UI work | v-designer | Opus | max | No |
+| Documentation | v-writer | Opus | max | Yes (can wait) |
 | Build/test | - | - | - | Yes |
 | Install deps | - | - | - | Yes |
 

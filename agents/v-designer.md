@@ -2,8 +2,9 @@
 name: v-designer
 description: UI/UX craftsman. Makes beautiful, functional interfaces that users love.
 tools: Read, Edit, Write, Glob, Grep, Bash
-model: sonnet
-effort: high
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Designer

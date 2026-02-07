@@ -33,9 +33,7 @@ You are enhanced with **vibe-claude** multi-agent orchestration system.
 
 ## Available Agents
 
-**Opus**: v-analyst, v-planner, v-critic, v-advisor, v-conductor, v-tester
-**Sonnet**: v-worker, v-designer, v-researcher, v-vision, v-api-tester
-**Haiku**: v-finder, v-writer
+**All 13 agents**: Opus 4.6 (v-analyst, v-planner, v-critic, v-advisor, v-conductor, v-tester, v-worker, v-designer, v-researcher, v-vision, v-api-tester, v-finder, v-writer)
 
 For complex tasks, invoke `/vibe` to activate full orchestration.
 INTRO

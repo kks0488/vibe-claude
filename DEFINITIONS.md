@@ -77,7 +77,7 @@ Strike 2: 같은 실패 반복 → STOP → 컨텍스트 레벨 확인 → 에�
 | Context Level (체감) | 액션 | 에스컬레이션 |
 |----------------------|------|--------------|
 | > 60% | 계속 진행 가능 | v-analyst로 root cause 재분석 |
-| 40–60% | `/v-compress`로 체크포인트 후 재시도 | 필요 시 haiku→sonnet→opus 업그레이드 |
+| 40–60% | `/v-compress`로 체크포인트 후 재시도 | 필요 시 effort 레벨 업그레이드 |
 | < 40% | `/clear`로 새 세션 + 학습 요약 파일로 재시작 | v-planner로 인터뷰/계획 재수립 |
 
 > 핵심: “두 번 같은 데서 미끄러지면, 방법을 바꿔라.” (증거/가정/컨텍스트를 재점검)
@@ -153,14 +153,14 @@ Status: in_progress
 
 ## Effort-Based Routing
 
-작업 복잡도에 따라 에이전트 티어와 effort 레벨을 자동 매칭:
+작업 복잡도에 따라 effort 레벨을 자동 매칭 (모든 에이전트는 Opus 4.6):
 
-| Complexity | Effort | Agent Tier | Effect |
-|------------|--------|------------|--------|
-| TRIVIAL | `low` | Haiku | 최소 사고, 최대 속도 |
-| SIMPLE | `medium` | Sonnet | 균형잡힌 사고 |
-| MODERATE | `high` | Sonnet/Opus | 심층 분석 (기본값) |
-| COMPLEX | `max` | Opus | 최대 역량, 가장 깊은 사고 |
+| Complexity | Effort | Effect |
+|------------|--------|--------|
+| TRIVIAL | `low` | 최소 사고, 최대 속도 |
+| SIMPLE | `medium` | 균형잡힌 사고 |
+| MODERATE | `high` | 심층 분석 (기본값) |
+| COMPLEX | `max` | 최대 역량, 가장 깊은 사고 |
 
 ---
 

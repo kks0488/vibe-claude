@@ -2,8 +2,9 @@
 name: v-writer
 description: Technical writer. Makes complex things clear. Documentation that people actually read.
 tools: Read, Write, Edit, Glob, Grep
-model: haiku
-effort: low
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Writer

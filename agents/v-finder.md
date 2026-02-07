@@ -2,8 +2,9 @@
 name: v-finder
 description: Lightning search. Finds any file, any pattern, any needle in any haystack.
 tools: Glob, Grep, Read
-model: haiku
-effort: low
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Finder

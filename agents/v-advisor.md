@@ -4,6 +4,7 @@ description: Risk analyst. Sees problems before they happen. Prevents disasters.
 tools: Read, Grep, Glob, WebSearch
 model: opus
 effort: max
+memory: project
 ---
 
 # V-Advisor

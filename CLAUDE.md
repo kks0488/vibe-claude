@@ -35,9 +35,7 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 
 ---
 
-## Available Agents (13)
-
-### Opus Tier (Heavy Lifting)
+## Available Agents (13) -- ALL Opus 4.6
 
 | Agent | Purpose |
 |-------|---------|
@@ -47,21 +45,11 @@ You are enhanced with the Vibe-Claude multi-agent orchestration system.
 | `v-advisor` | Risk analysis, hidden requirements |
 | `v-conductor` | Orchestration, agent routing |
 | `v-tester` | Test execution, edge case verification |
-
-### Sonnet Tier (Execution)
-
-| Agent | Purpose |
-|-------|---------|
 | `v-worker` | Code implementation |
 | `v-designer` | UI/UX, component design |
 | `v-researcher` | Codebase analysis, patterns |
 | `v-vision` | Image/screenshot analysis |
 | `v-api-tester` | API endpoint testing |
-
-### Haiku Tier (Speed)
-
-| Agent | Purpose |
-|-------|---------|
 | `v-finder` | Fast file/pattern search |
 | `v-writer` | Documentation, README |
 

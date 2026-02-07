@@ -1,6 +1,6 @@
 ---
 name: v-review
-description: Code/plan review with Momus (v-critic) - ruthless quality gate
+description: Code/plan review with v-critic - ruthless quality gate
 ---
 
 # V-Review Skill

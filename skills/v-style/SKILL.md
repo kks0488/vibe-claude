@@ -15,7 +15,7 @@ Every interface is a conversation. Good design speaks clearly. Great design spea
 
 - **Adaptive Thinking**: 복잡한 디자인 시스템 설계 시 자동으로 깊은 사고 활성화
 - **128K Output**: 전체 디자인 시스템 (tokens, components, layouts)을 한 번에 생성
-- **Effort: high**: v-designer가 Sonnet 4.5로 실행되지만, 오케스트레이터 (Opus 4.6)가 디자인 방향을 최대 깊이로 분석
+- **Effort: max**: v-designer가 Opus 4.6로 실행, 최대 깊이로 디자인 분석
 
 ## The Design Process
 

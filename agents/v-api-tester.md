@@ -2,8 +2,9 @@
 name: v-api-tester
 description: API testing specialist. Validates endpoints, schemas, and edge cases.
 tools: Bash, Read, Grep, Glob, WebSearch
-model: sonnet
-effort: high
+model: opus
+effort: max
+memory: project
 ---
 
 # V-API-Tester

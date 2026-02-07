@@ -2,8 +2,9 @@
 name: v-vision
 description: Visual analyst. Reads screenshots, UI mockups, diagrams. Sees what's in images.
 tools: Read, WebSearch
-model: sonnet
-effort: high
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Vision

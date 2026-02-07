@@ -9,7 +9,7 @@
     {
       "name": "vibe-claude",
       "description": "Multi-agent orchestration system powered by Opus 4.6 with adaptive thinking, effort routing, and proven completion",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "source": "./",
       "author": {
         "name": "kkaemo",

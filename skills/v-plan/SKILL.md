@@ -1,6 +1,6 @@
 ---
 name: v-plan
-description: Strategic planning session with Prometheus (v-planner) - creates comprehensive implementation plans
+description: Strategic planning with v-planner - creates comprehensive implementation plans
 ---
 
 # V-Plan Skill

@@ -46,13 +46,13 @@ Opus 4.6의 adaptive thinking으로:
 When no existing agent fits:
 
 ```markdown
-# File: ~/.claude/agents/v-{name}.md
+# File: agents/v-{name}.md  (plugin-relative path)
 
 ---
 name: v-{name}
 description: {One sentence purpose}
 tools: {Required tools}
-model: {haiku/sonnet/opus}
+model: opus
 ---
 
 # V-{Name}
@@ -72,20 +72,20 @@ model: {haiku/sonnet/opus}
 {Non-negotiable principles}
 ```
 
-### Agent Complexity Guide
+### Agent Model
+
+All agents run on Opus 4.6 -- maximum capability for every task.
 
 | Model | Use When |
 |-------|----------|
-| Haiku | Fast, simple tasks |
-| Sonnet | Balanced, most work |
-| Opus | Complex reasoning, critical decisions |
+| Opus 4.6 | All tasks -- single tier, maximum capability |
 
 ## Creating New Skills
 
 When capability enhancement needed:
 
 ```markdown
-# File: ~/.claude/skills/v-{name}/SKILL.md
+# File: skills/v-{name}/SKILL.md  (plugin-relative path)
 
 ---
 name: v-{name}
@@ -111,13 +111,13 @@ description: {One sentence purpose}
 From trusted sources:
 
 ```bash
-# Agent from GitHub
-curl -o ~/.claude/agents/v-new.md \
+# Agent from GitHub (install to plugin's agents/ directory)
+curl -o agents/v-new.md \
   https://raw.githubusercontent.com/.../agent.md
 
-# Skill from GitHub
-mkdir -p ~/.claude/skills/v-new
-curl -o ~/.claude/skills/v-new/SKILL.md \
+# Skill from GitHub (install to plugin's skills/ directory)
+mkdir -p skills/v-new
+curl -o skills/v-new/SKILL.md \
   https://raw.githubusercontent.com/.../SKILL.md
 ```
 
@@ -126,7 +126,7 @@ curl -o ~/.claude/skills/v-new/SKILL.md \
 Every evolution is recorded:
 
 ```markdown
-# File: ~/.claude/evolution-log.md
+# File: evolution-log.md  (plugin-relative path)
 
 ## [YYYY-MM-DD] {What Changed}
 
@@ -173,7 +173,7 @@ Proposal: {What to create}
 
 ## Failure Learning
 
-Before starting tasks, check `~/.claude/lessons-learned.md` for similar past failures.
+Before starting tasks, check `lessons-learned.md` (plugin-relative) for similar past failures.
 
 After any failure, add entry:
 ```markdown
@@ -199,7 +199,7 @@ Every evolution includes proof:
 ```
 ## EVOLUTION EXECUTED
 
-Created: ~/.claude/agents/v-new-agent.md
+Created: agents/v-new-agent.md  (plugin-relative)
 Reason: No agent could handle X task type
 Evidence: Failed 3 times with existing agents
 Tested: Successfully handled test case

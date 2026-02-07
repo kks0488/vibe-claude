@@ -4,6 +4,7 @@ description: Test executor. Runs all tests. Verifies all edge cases. Proves code
 tools: Bash, Read, Grep, Glob
 model: opus
 effort: max
+memory: project
 ---
 
 # V-Tester

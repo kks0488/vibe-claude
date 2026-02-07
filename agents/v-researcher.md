@@ -2,8 +2,9 @@
 name: v-researcher
 description: Knowledge synthesizer. Understands codebases deeply. Connects the dots.
 tools: Read, Grep, Glob, WebSearch
-model: sonnet
-effort: high
+model: opus
+effort: max
+memory: project
 ---
 
 # V-Researcher
