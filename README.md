@@ -42,6 +42,32 @@ Power: 128K output. Adaptive thinking. Compaction.
 
 ---
 
+## What's New in v4.0.0
+
+> **All 13 agents now run on Opus 4.6.** No more tier compromises.
+
+| Change | Before (v3) | After (v4) |
+|--------|------------|------------|
+| Agent models | Opus 6 + Sonnet 5 + Haiku 2 | **ALL 13 Opus 4.6** |
+| Effort level | Mixed (low/high/max) | **All max** |
+| Agent memory | None | **`memory: project`** — agents remember across sessions |
+| Task system | TodoWrite (deprecated) | **TaskCreate/TaskUpdate/TaskList** — dependency tracking |
+| Hook events | 2 (SessionStart, PromptSubmit) | **3 (+Setup)** — init/maintenance support |
+| Escalation | Tier-based (haiku→sonnet→opus) | **Context-based** — refine and retry |
+| Error rule | Inconsistent (2x vs 3x) | **2x** — SSOT enforced |
+| Plugin paths | `~/.claude/` hardcoded | **Plugin-relative** — works with `claude plugin install` |
+
+### Claude Code Features Leveraged (2.1.32+)
+
+- **Agent Memory** (`memory: project`) — agents persist knowledge across conversations
+- **New Task System** (TaskCreate/TaskUpdate/TaskList) — dependency tracking, status management
+- **Setup Hook** — auto-initialization on `--init` and `--maintenance`
+- **Fast Mode for Opus 4.6** — `/fast` toggle for faster output when needed
+- **Skill Character Budget** — scales with context window automatically
+- **Partial Summarization** — "Summarize from here" for targeted context compression
+
+---
+
 ## Powered by Opus 4.6
 
 | Feature | What It Means |
@@ -290,7 +316,7 @@ Attempt 1: Standard approach
     ↓ FAIL
 Attempt 2: Alternative method
     ↓ FAIL
-Attempt 3: Escalate to Opus 4.6 (effort: max) + v-analyst
+Attempt 3: Maximum effort (effort: max) + v-analyst deep analysis
     ↓ FAIL
 Attempt 4: Decompose into smaller tasks
     ↓ FAIL
