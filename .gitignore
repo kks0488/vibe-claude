@@ -31,7 +31,6 @@ plugins/
 
 # Local settings
 settings.local.json
-settings.json
 
 # Update logs
 .vibe-update.log
@@ -39,8 +38,6 @@ settings.json
 
 # Plans (local work)
 plans/
-.vibe-version.json
-hooks/
 
 # Personal work data
 .vibe/work-*.md

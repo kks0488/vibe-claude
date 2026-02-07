@@ -14,6 +14,43 @@ The more you use it, the smarter it gets.
 
 ---
 
+## What's New in v4.1.0
+
+### Agent Frontmatter Overhaul (13 agents)
+- **`permissionMode`** per agent: `acceptEdits` for workers, `default` for readers
+- **`maxTurns`** per agent: Prevents runaway agents (10-50 turns)
+- **`Task(allowlist)`**: v-conductor restricted to 12 known agent types only
+- **Skills preloading**: v-worker gets v-git, v-designer gets v-style automatically
+- **Agent-specific hooks**: PostToolUse lint check on v-worker and v-designer
+
+### Hook System (8 Events)
+| Event | What It Does |
+|-------|-------------|
+| Setup | Real initialization: `.vibe/` dirs, config validation, session detection |
+| SessionStart | Context injection with agent list and core rules |
+| UserPromptSubmit | "Evidence before claims" reminder |
+| SubagentStart | Auto-inject current work document context |
+| TeammateIdle | Force continue if incomplete tasks exist |
+| TaskCompleted | Reject completion without COMPLETION PROOF |
+| **Stop** | **"NEVER STOP UNTIL PROVEN DONE" enforced by hook** |
+| PostToolUse | Auto syntax/lint check after Write/Edit |
+
+### Settings
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — Multi-agent teams enabled
+- Custom `spinnerVerbs` — "Orchestrating", "Running tribunal", etc.
+- `plansDirectory: .vibe/plans` — Organized plan storage
+- `teammateMode: auto` — Automatic teammate coordination
+
+### Commands
+- All 8 core commands now pass `$ARGUMENTS` to skills explicitly
+- Better argument forwarding: `/vibe build a login page` → skill receives "build a login page"
+
+### Skill Optimization
+- Priority sections at top of large skills (vibe, v-turbo)
+- Critical rules survive context budget truncation (2% scaling)
+
+---
+
 ## Key Feature: Self-Evolution
 
 **Vibe-Claude evolves itself.** When it encounters a task it can't handle well:
@@ -114,7 +151,7 @@ Just describe what you want. In any language. However you want.
 
 **We throw money at it.**
 
-Vibe-Claude uses Opus 4.5 without hesitation:
+Vibe-Claude uses Opus 4.6 without hesitation:
 - Analysis? Opus
 - Planning? Opus
 - Review? Opus
@@ -142,20 +179,17 @@ Expensive, but effective.
 │  │           AGENTS (13)                │    │
 │  │                                      │    │
 │  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-analyst │ │v-planner │ ← Opus   │    │
-│  │  │v-critic  │ │v-advisor │   (6)    │    │
-│  │  │v-conductor│ │v-tester │          │    │
-│  │  └──────────┘ └──────────┘          │    │
+│  │  │v-analyst │ │v-planner │          │    │
+│  │  │v-critic  │ │v-advisor │          │    │
+│  │  │v-conductor│ │v-tester │ ALL      │    │
+│  │  └──────────┘ └──────────┘ Opus 4.6 │    │
 │  │                                      │    │
 │  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-worker  │ │v-designer│ ← Sonnet │    │
-│  │  │v-researcher│ │v-vision │   (5)    │    │
+│  │  │v-worker  │ │v-designer│          │    │
+│  │  │v-researcher│ │v-vision │  (13)   │    │
 │  │  │v-api-tester│           │          │    │
+│  │  │v-finder  │ │v-writer  │          │    │
 │  │  └──────────┘ └──────────┘          │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-finder  │ │v-writer  │ ← Haiku  │    │
-│  │  └──────────┘ └──────────┘   (2)    │    │
 │  └─────────────────────────────────────┘    │
 │         ↓                                    │
 │  ┌─────────────────────────────────────┐    │
@@ -175,35 +209,23 @@ Expensive, but effective.
 
 ---
 
-## Agents
+## Agents — ALL Opus 4.6
 
-### Opus Tier (Heavy Lifting)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-analyst` | Deep debugging, root cause analysis |
-| `v-planner` | Strategic planning, architecture design |
-| `v-critic` | Ruthless code review, quality gates |
-| `v-advisor` | Risk analysis, hidden requirements |
-| `v-conductor` | Orchestration, agent routing |
-| `v-tester` | Test execution, edge case verification |
-
-### Sonnet Tier (Execution)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-worker` | Code implementation |
-| `v-designer` | UI/UX, styling, components |
-| `v-researcher` | Documentation, codebase analysis |
-| `v-vision` | Screenshot/image analysis |
-| `v-api-tester` | API endpoint testing |
-
-### Haiku Tier (Speed)
-
-| Agent | Purpose |
-|-------|---------|
-| `v-finder` | Fast file/pattern search |
-| `v-writer` | Documentation writing |
+| Agent | Purpose | permissionMode | maxTurns |
+|-------|---------|---------------|----------|
+| `v-conductor` | Orchestration, agent routing | default | 50 |
+| `v-analyst` | Deep debugging, root cause analysis | default | 25 |
+| `v-planner` | Strategic planning, architecture design | default | 25 |
+| `v-critic` | Ruthless code review, quality gates | default | 25 |
+| `v-advisor` | Risk analysis, hidden requirements | default | 15 |
+| `v-tester` | Test execution, edge case verification | acceptEdits | 25 |
+| `v-worker` | Code implementation (+v-git skill) | acceptEdits | 30 |
+| `v-designer` | UI/UX, styling, components (+v-style skill) | acceptEdits | 30 |
+| `v-researcher` | Documentation, codebase analysis | default | 25 |
+| `v-vision` | Screenshot/image analysis | default | 10 |
+| `v-api-tester` | API endpoint testing | default | 20 |
+| `v-finder` | Fast file/pattern search | default | 10 |
+| `v-writer` | Documentation writing | acceptEdits | 20 |
 
 ---
 

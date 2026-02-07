@@ -1,11 +1,48 @@
 ---
 name: vibe
-description: Maximum power mode. Todo tracking, agent delegation, verification, infinite retry.
+description: Maximum power mode. Todo tracking, agent delegation, verification, retry (max 10).
 ---
 
-# Vibe Skill
+<!-- PRIORITY: HIGH — This section MUST survive context budget truncation -->
 
-The core skill that powers `/vibe` mode. Maximum power, infinite retry, proven completion.
+# Vibe Skill v4.1.0
+
+## CRITICAL RULES (Top Priority)
+
+1. **NEVER claim done without COMPLETION PROOF** (output + tests + file:line refs)
+2. **Delegate exploration to subagents** — protect main context
+3. **Two-Strike Rule** — same failure 2x → change approach
+4. **Dynamic Routing** — TRIVIAL:P3 | SIMPLE:P1→P3→P4 | MODERATE:P1→P3→P4 | COMPLEX:P0.5→P1→P2→P3→P4→P5
+5. **Retry max 10** — then ask user
+6. **Parallel everything possible** — use v-turbo patterns
+7. **Context budget** — 40% compress, 20% clear
+8. **Forbidden phrases**: "Should work", "I think it's done", "Looks correct"
+
+## Activation
+
+```
+/vibe <task description>
+```
+
+Creates `.vibe/work-{timestamp}.md`, classifies complexity, executes optimal phase route.
+
+## 5-Phase System
+
+| Phase | Purpose | Agents |
+|-------|---------|--------|
+| 0 | Routing | Auto-classify |
+| 0.5 | Interview (COMPLEX) | Clarify requirements |
+| 1 | Recon (Parallel) | v-analyst, v-finder, v-researcher, v-advisor |
+| 2 | Planning (COMPLEX) | v-planner |
+| 3 | Execution (Parallel) | v-worker, v-designer, v-writer |
+| 4 | Verification Tribunal | v-critic, v-analyst, v-tester — ALL MUST APPROVE |
+| 5 | Polish (Optional) | v-worker, v-writer |
+
+<!-- END PRIORITY: HIGH -->
+
+---
+
+The core skill that powers `/vibe` mode. Maximum power, retry (max 10), proven completion.
 
 ## Core Philosophy
 
@@ -14,11 +51,62 @@ DOCUMENT FIRST.
 MONEY IS NO OBJECT.
 OPUS FOR EVERYTHING.
 PARALLEL EVERYTHING.
-RETRY INFINITELY.
+RETRY (MAX 10).
 NEVER. GIVE. UP.
 NEVER. FORGET.
 CONTEXT IS PRECIOUS.
 ```
+
+## Claude 4.6 Power Upgrades
+
+> **Opus 4.6은 vibe의 모든 것을 초강화한다.**
+
+### Adaptive Thinking
+
+모든 Phase에서 adaptive thinking 자동 활성화:
+```
+Phase 0: Routing → effort: low (즉시 분류)
+Phase 0.5: Interview → effort: high (깊은 이해)
+Phase 1: Recon → effort: high/max (철저한 분석)
+Phase 2: Planning → effort: max (완벽한 계획)
+Phase 3: Execution → effort: high (품질 있는 구현)
+Phase 4: Verification → effort: max (타협 없는 검증)
+Phase 5: Polish → effort: medium (효율적 마무리)
+```
+
+### Effort-Based Agent Dispatch
+
+| Complexity | Effort | Agent Tier | Thinking |
+|------------|--------|------------|----------|
+| TRIVIAL | `low` | Opus 4.6 | Minimal - 즉시 실행 |
+| SIMPLE | `medium` | Opus 4.6 | Balanced - 적절한 분석 |
+| MODERATE | `high` | Opus 4.6 | Deep - 심층 분석 |
+| COMPLEX | `max` | Opus 4.6 | Maximum - 가장 깊은 사고 |
+
+### 128K Output
+
+- 이전: 64K 제한으로 긴 분석/코드 잘림
+- **지금: 128K로 2배** — 대규모 기능 전체를 한 번에 생성
+- COMPLEX 작업에서 Planning + Execution 품질 극적 향상
+
+### Compaction Integration (서버사이드)
+
+```
+기존: Context 40% → /v-compress (수동)
+지금: Compaction API가 자동으로 서버사이드 요약
+  → 이전 대화 자동 압축
+  → 현재 작업 컨텍스트 보존
+  → 사실상 무한 대화 가능
+
+/v-compress = Compaction 보조 (상세 파일 저장)
+Compaction API = 자동 컨텍스트 관리 (서버)
+```
+
+### Fine-grained Tool Streaming (GA)
+
+- Phase 3에서 코드 생성 실시간 모니터링
+- Phase 4에서 테스트 결과 즉각 스트리밍
+- 더 이상 beta 헤더 불필요
 
 ---
 
@@ -26,15 +114,17 @@ CONTEXT IS PRECIOUS.
 
 > **"컨텍스트 윈도우는 가장 중요한 자원이다."**
 
-### Context Budget Visualization
+### Context Budget Visualization (Compaction-Enhanced)
 
 ```
 100% ████████████████████ Fresh session
- 80% ████████████████░░░░ Healthy
- 60% ████████████░░░░░░░░ Caution - consider /v-compress
- 40% ████████░░░░░░░░░░░░ WARNING - compress or checkpoint
- 20% ████░░░░░░░░░░░░░░░░ DANGER ZONE - /clear recommended
+ 80% ████████████████░░░░ Healthy (Compaction standby)
+ 60% ████████████░░░░░░░░ Compaction API 자동 요약 시작
+ 40% ████████░░░░░░░░░░░░ /v-compress 보조 (상세 파일 저장)
+ 20% ████░░░░░░░░░░░░░░░░ Checkpoint → /v-continue 준비
 ```
+
+> **Claude 4.6 + Compaction = 컨텍스트 걱정 대폭 감소**
 
 ### Context Preservation Rules
 
@@ -237,9 +327,9 @@ Attempt 3-10: Various approaches (if context allows)
 After 10: Request user guidance
 ```
 
-**Same Error 3x Rule**:
+**Same Error 2x Rule**:
 ```
-Same exact error 3 times?
+Same exact error 2 times?
     ↓
 STOP. /clear + completely different approach
 Don't throw good context after bad.

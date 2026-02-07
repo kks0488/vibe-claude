@@ -1,0 +1,26 @@
+{
+  "model": "opus",
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "spinnerVerbs": {
+    "mode": "append",
+    "verbs": [
+      "Orchestrating",
+      "Dispatching agents",
+      "Running tribunal",
+      "Analyzing deeply",
+      "Verifying evidence",
+      "Coordinating swarm",
+      "Hunting bugs",
+      "Crafting solution",
+      "Reviewing ruthlessly"
+    ]
+  },
+  "plansDirectory": ".vibe/plans",
+  "teammateMode": "auto"
+}
