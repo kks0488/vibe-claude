@@ -4,630 +4,215 @@
   <img src="assets/vibe-claude.jpeg" alt="Vibe-Claude Logo" width="400">
 </p>
 
-> **Don't think. Just vibe. Claude does the rest.**
+> Don't fight the tool. Sharpen the edge.
 
-A **self-evolving** multi-agent orchestration system for Claude Code.
-The more you use it, the smarter it gets.
+A minimal enhancement layer for [Claude Code](https://claude.ai) — distilled from 4 major iterations down to what actually matters.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai)
 
 ---
 
-## What's New in v4.1.0
+## What This Is
 
-### Agent Frontmatter Overhaul (13 agents)
-- **`permissionMode`** per agent: `acceptEdits` for workers, `default` for readers
-- **`maxTurns`** per agent: Prevents runaway agents (10-50 turns)
-- **`Task(allowlist)`**: v-conductor restricted to 12 known agent types only
-- **Skills preloading**: v-worker gets v-git, v-designer gets v-style automatically
-- **Agent-specific hooks**: PostToolUse lint check on v-worker and v-designer
+5 files. 2 hooks. 5 rules. That's it.
 
-### Hook System (8 Events)
-| Event | What It Does |
-|-------|-------------|
-| Setup | Real initialization: `.vibe/` dirs, config validation, session detection |
-| SessionStart | Context injection with agent list and core rules |
-| UserPromptSubmit | "Evidence before claims" reminder |
-| SubagentStart | Auto-inject current work document context |
-| TeammateIdle | Force continue if incomplete tasks exist |
-| TaskCompleted | Reject completion without COMPLETION PROOF |
-| **Stop** | **"NEVER STOP UNTIL PROVEN DONE" enforced by hook** |
-| PostToolUse | Auto syntax/lint check after Write/Edit |
+Vibe-Claude adds two things Claude Code doesn't enforce natively:
 
-### Settings
-- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — Multi-agent teams enabled
-- Custom `spinnerVerbs` — "Orchestrating", "Running tribunal", etc.
-- `plansDirectory: .vibe/plans` — Organized plan storage
-- `teammateMode: auto` — Automatic teammate coordination
+1. **Stop Guard** — Blocks the agent from stopping without showing execution evidence
+2. **Post-Edit Check** — Validates syntax after every file edit
 
-### Commands
-- All 8 core commands now pass `$ARGUMENTS` to skills explicitly
-- Better argument forwarding: `/vibe build a login page` → skill receives "build a login page"
-
-### Skill Optimization
-- Priority sections at top of large skills (vibe, v-turbo)
-- Critical rules survive context budget truncation (2% scaling)
+Everything else is Claude Code doing what it already does best.
 
 ---
 
-## Key Feature: Self-Evolution
-
-**Vibe-Claude evolves itself.** When it encounters a task it can't handle well:
-
-```
-Capability gap detected
-        ↓
-Create new agent prompt or skill
-        ↓
-Save to ~/.claude/agents/ or ~/.claude/skills/
-        ↓
-Reference and use in future tasks
-```
-
-| Situation | What Happens |
-|-----------|--------------|
-| Repeated task pattern | Creates reusable prompt template |
-| Specialized knowledge needed | Creates expert agent prompt |
-| Better method discovered | Updates existing prompts |
-| External tool needed | Creates integration skill |
-
-### How Evolution Works
-
-New agents are saved as prompt files. Claude reads and applies them when relevant:
-
-```
-User: "Test my API endpoints"
-        ↓
-Claude checks ~/.claude/agents/
-        ↓
-Finds v-api-tester.md
-        ↓
-Reads the prompt and becomes that specialist
-```
-
-**The system learns your project's patterns over time.**
-
----
-
-## Who Is This For?
-
-- "I don't know code" → **You don't need to**
-- "Just make it work" → **It will**
-- "I hate complexity" → **One command**
-- "Money isn't the issue" → **We use Opus liberally**
-
----
-
-## Quick Start
+## Install
 
 ```bash
-# Install
 git clone https://github.com/kks0488/vibe-claude.git ~/.claude-vibe
-cp -r ~/.claude-vibe/* ~/.claude/
-
-# Use
-/vibe make me a login page
+cp ~/.claude-vibe/CLAUDE.md ~/.claude/CLAUDE.md
+cp -r ~/.claude-vibe/hooks/* ~/.claude/hooks/
+cp ~/.claude-vibe/settings.json ~/.claude/settings.json
 ```
 
-That's it. Claude will:
-- Analyze what's needed
-- Plan the approach
-- Build it
-- Test it
-- Fix any issues
-- Repeat until perfect
-
----
-
-## Usage Examples
-
-```
-/vibe create a blog with comments
-/vibe fix this authentication bug
-/vibe add dark mode to my app
-/vibe make this look professional
-/vibe refactor the entire API layer
-```
-
-Just describe what you want. In any language. However you want.
-
----
-
-## Philosophy
-
-> **"Vibe coding: where you describe, AI delivers."**
-
-| Traditional Development | Vibe-Claude |
-|------------------------|-------------|
-| 1. Write requirements | 1. "Make this" |
-| 2. Design architecture | 2. Done |
-| 3. Write code | |
-| 4. Write tests | |
-| 5. Debug | |
-| 6. Repeat... | |
-
-### Why Does This Work?
-
-**We throw money at it.**
-
-Vibe-Claude uses Opus 4.6 without hesitation:
-- Analysis? Opus
-- Planning? Opus
-- Review? Opus
-- Anything complex? Opus
-
-Expensive, but effective.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│              VIBE-CLAUDE                     │
-├─────────────────────────────────────────────┤
-│                                              │
-│  /vibe "your request"                        │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │         V-CONDUCTOR                  │    │
-│  │    (Auto-routes to right agent)      │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │           AGENTS (13)                │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-analyst │ │v-planner │          │    │
-│  │  │v-critic  │ │v-advisor │          │    │
-│  │  │v-conductor│ │v-tester │ ALL      │    │
-│  │  └──────────┘ └──────────┘ Opus 4.6 │    │
-│  │                                      │    │
-│  │  ┌──────────┐ ┌──────────┐          │    │
-│  │  │v-worker  │ │v-designer│          │    │
-│  │  │v-researcher│ │v-vision │  (13)   │    │
-│  │  │v-api-tester│           │          │    │
-│  │  │v-finder  │ │v-writer  │          │    │
-│  │  └──────────┘ └──────────┘          │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│  ┌─────────────────────────────────────┐    │
-│  │           SKILLS (8)                 │    │
-│  │  vibe v-turbo v-git v-style         │    │
-│  │  v-evolve v-continue v-memory       │    │
-│  │  v-compress                          │    │
-│  └─────────────────────────────────────┘    │
-│         ↓                                    │
-│      RESULT                                  │
-│         ↓                                    │
-│  Not perfect? → Retry (up to 10x)           │
-│         ↓                                    │
-│      DONE                                    │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Agents — ALL Opus 4.6
-
-| Agent | Purpose | permissionMode | maxTurns |
-|-------|---------|---------------|----------|
-| `v-conductor` | Orchestration, agent routing | default | 50 |
-| `v-analyst` | Deep debugging, root cause analysis | default | 25 |
-| `v-planner` | Strategic planning, architecture design | default | 25 |
-| `v-critic` | Ruthless code review, quality gates | default | 25 |
-| `v-advisor` | Risk analysis, hidden requirements | default | 15 |
-| `v-tester` | Test execution, edge case verification | acceptEdits | 25 |
-| `v-worker` | Code implementation (+v-git skill) | acceptEdits | 30 |
-| `v-designer` | UI/UX, styling, components (+v-style skill) | acceptEdits | 30 |
-| `v-researcher` | Documentation, codebase analysis | default | 25 |
-| `v-vision` | Screenshot/image analysis | default | 10 |
-| `v-api-tester` | API endpoint testing | default | 20 |
-| `v-finder` | Fast file/pattern search | default | 10 |
-| `v-writer` | Documentation writing | acceptEdits | 20 |
-
----
-
-## Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `vibe` | Maximum power mode - parallel + retry + verification |
-| `v-turbo` | Parallel execution, maximum speed |
-| `v-git` | Clean commits, git mastery |
-| `v-style` | Beautiful UI, design systems |
-| `v-evolve` | Self-improvement, creates new capabilities |
-| `v-continue` | Session restoration, resume work |
-| `v-memory` | AI memory system with auto-recall & auto-save |
-| `v-compress` | Context compression, session extension |
-
----
-
-## How It Works
-
-### Context Management (NEW in v2.1)
-
-> **"Context window is the most valuable resource."**
-
-```
-100% ████████████████████ Fresh session
- 60% ████████████░░░░░░░░ Caution → /v-compress
- 40% ████████░░░░░░░░░░░░ WARNING → checkpoint
- 20% ████░░░░░░░░░░░░░░░░ DANGER → /clear
-```
-
-**Key Principles:**
-- **Subagent-First Exploration**: Delegate exploration to agents, protect main context
-- **Two-Strike Rule**: Same failure twice → evaluate context → compress or clear
-- **Checkpoint Protocol**: Save progress at phase completion and before risky operations
-
-### Dynamic Routing (NEW in v2.1)
-
-Not all tasks need all phases:
-
-| Complexity | Route | Interview? | Planning? |
-|------------|-------|------------|-----------|
-| TRIVIAL | P3 only | No | No |
-| SIMPLE | P1→P3→P4 | No | No |
-| MODERATE | P1→P3→P4 | Optional | No |
-| COMPLEX | P0.5→P1→P2→P3→P4→P5 | **YES** | **YES** |
-
-### The 5-Phase System (+ Phase 0.5)
-
-Every task follows this proven structure:
-
-```
-┌─────────────────────────────────────────────────┐
-│         THE 5-PHASE SYSTEM (+ Phase 0.5)        │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  Phase 0.5: INTERVIEW (COMPLEX only) ← NEW      │
-│  └─ Ask clarifying questions before starting    │
-│     - Scope: What's included/excluded?          │
-│     - Technical: Patterns, constraints?         │
-│     - Edge cases: Error scenarios?              │
-│     - Verification: Success criteria?           │
-│                                                 │
-│  Phase 1: RECON (Parallel)                      │
-│  ├─ v-analyst: Analyze requirements             │
-│  ├─ v-finder: Find related code                 │
-│  ├─ v-researcher: Research best practices       │
-│  └─ v-advisor: Identify risks                   │
-│                                                 │
-│  Phase 2: PLANNING (COMPLEX only)               │
-│  └─ v-planner: Create comprehensive plan        │
-│                                                 │
-│  Phase 3: EXECUTION (Parallel)                  │
-│  ├─ v-worker: Implement features                │
-│  ├─ v-designer: Build UI components             │
-│  └─ v-writer: Write documentation               │
-│                                                 │
-│  Phase 4: VERIFICATION TRIBUNAL                 │
-│  ├─ v-critic: Quality review                    │
-│  ├─ v-analyst: Logic verification               │
-│  └─ Tests: Automated checks                     │
-│  ALL THREE MUST APPROVE                         │
-│                                                 │
-│  Phase 5: POLISH (COMPLEX only)                 │
-│  ├─ Refactor if needed                          │
-│  ├─ Add docs/comments                           │
-│  └─ Security/performance check                  │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
-
-### Work Document Tracking
-
-Every `/vibe` task creates a tracking document:
-```
-.vibe/work-{timestamp}.md
-```
-
-This ensures **nothing is forgotten**. Each task is tracked with checkboxes and evidence.
-
-### Evidence-Based Completion
-
-**Nothing is "done" without proof:**
-- Code must actually RUN (output shown)
-- Tests must actually PASS (results pasted)
-- Every feature verified with `file:line` references
-
-**Forbidden phrases:**
-- "Should work" → Must TEST it
-- "I think it's done" → Must PROVE it
-- "Looks correct" → Must RUN it
-
-### Retry Engine (Context-Aware)
-
-```
-Attempt 1: Standard approach
-    ↓ FAIL
-Attempt 2: Alternative method
-    ↓ FAIL (Two-Strike → Context Check)
-
-Context > 60%: Continue with v-analyst deep dive
-Context 40-60%: /v-compress first, then retry
-Context < 40%: /clear + new approach
-
-Attempt 3-10: Various approaches (if context allows)
-After 10: Ask user for guidance
-```
-
-**Same Error 3x Rule**: Same exact error 3 times? STOP. `/clear` + completely different approach.
-
-### Anti-Patterns (NEW in v2.1)
-
-Vibe-Claude now detects and avoids common failure patterns:
-
-| Pattern | Trigger | Action |
-|---------|---------|--------|
-| Kitchen Sink | 2+ unrelated tasks | Split sessions |
-| Death Spiral | 3+ failed fixes | /clear + root cause |
-| Infinite Exploration | 5+ files no plan | Stop + subagent |
-| Trust-Verify Gap | Claim without proof | Run verification |
-| Subagent Bypass | Direct exploration | Delegate now |
-
-### Batch Operations (NEW in v2.1)
-
-For large-scale changes (5+ files):
-
-```
-Orchestrator (main Claude):
-├─ Define transformation
-├─ List target files
-├─ Spawn workers (parallel)
-│   ├─ v-worker-1: files 1-5
-│   ├─ v-worker-2: files 6-10
-│   └─ v-worker-3: files 11-15
-├─ Collect results
-└─ Verify all succeeded
-```
-
-**Writer/Reviewer Pattern**: For quality-critical batch ops, v-worker writes → v-critic reviews → fix issues → final verification.
-
-### Session Management (Enhanced in v2.1)
-
-Never lose progress when context runs out:
-
-| Session Type | Strategy |
-|--------------|----------|
-| Single-task | Complete → /clear |
-| Multi-task | Task → checkpoint → task |
-| Exploration | Subagent-heavy, summarize often |
-| Long-running | Aggressive checkpointing |
-
-**Checkpoint Protocol:**
-```markdown
-# .vibe/checkpoint-{timestamp}.md
-
-## Context
-- Task: {description}
-- Phase: {current phase}
-- Progress: {completed items}
-
-## State
-- Modified files: {list}
-- Pending tasks: {list}
-
-## Resume Instructions
-{Exact steps to continue}
-```
-
-**Session Handoff:**
-1. Create checkpoint
-2. `/v-compress` (save details to file)
-3. Summary message to user
-4. Next session: `/v-continue`
-
-**Command Reference:**
-
-| Command | When to Use | Effect |
-|---------|-------------|--------|
-| `/clear` | Fresh start needed | Clears all context |
-| `/compact` | Context getting full | Summarizes conversation |
-| `/v-compress` | Phase complete | Saves details, keeps summary |
-| `/v-continue` | Resume previous work | Loads last checkpoint |
-
-No more losing work when sessions end!
-
----
-
-### Self-Evolution (The Secret Sauce)
-
-This is what makes Vibe-Claude different. When Claude encounters something it can't handle well:
-
-```
-Day 1: "I need to optimize database queries"
-       → Claude struggles a bit
-
-Day 2: Claude creates v-db-optimizer agent
-       → Saves to ~/.claude/agents/v-db-optimizer.md
-
-Day 3+: All DB tasks routed to specialized agent
-        → Fast, efficient, tailored to YOUR codebase
-```
-
-**Evolution is logged:**
-```
-~/.claude/evolution-log.md
-
-## [2024-01-15] Created v-db-optimizer
-
-### Reason
-Repeated database optimization requests with suboptimal results
-
-### Change
-Created specialized agent with PostgreSQL expertise
-
-### Effect
-DB optimization tasks now 3x faster with better results
-```
-
-The more you use Vibe-Claude, the more it adapts to YOUR specific needs.
-
----
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/vibe <task>` | Maximum power mode - parallel + retry + verification |
-| `/v-turbo <task>` | Maximum speed with concurrent execution |
-| `/v-plan <task>` | Strategic planning session |
-| `/v-review` | Critical evaluation of code/plans |
-| `/v-continue` | Resume work from previous session |
-| `/v-memory <cmd>` | Save, search, recall knowledge |
-| `/v-compress` | Compress context, extend session |
-| `/cancel-vibe` | Stop current vibe session |
-| `/update` | Check for and install vibe-claude updates |
-
----
-
-## V-Memory System
-
-AI-powered knowledge system that learns and remembers automatically.
-
-### How It Works
-
-```
-┌─────────────────────────────────────────────────┐
-│              V-MEMORY SYSTEM                     │
-├─────────────────────────────────────────────────┤
-│                                                  │
-│  AUTO-RECALL (on task start)                     │
-│  ├─ /vibe runs → auto-search related memories   │
-│  ├─ Error occurs → search similar solutions     │
-│  └─ New project → auto-load related knowledge   │
-│                                                  │
-│  AUTO-SAVE (on task complete)                    │
-│  ├─ Failure → Solution → auto-save lesson       │
-│  ├─ Same pattern 3x+ → auto-save pattern        │
-│  ├─ Tech choice → auto-save decision            │
-│  └─ New domain → auto-save context              │
-│                                                  │
-│  DEDUP (before save)                             │
-│  └─ memU check-similar prevents duplicates      │
-│                                                  │
-└─────────────────────────────────────────────────┘
-```
-
-### Memory Types
-
-| Type | Purpose | Auto-Trigger |
-|------|---------|--------------|
-| `lessons` | Failure → Solution records | 2+ attempts then success |
-| `patterns` | Reusable code patterns | Same pattern 3x+ |
-| `decisions` | Architecture decisions | Tech choice discussions |
-| `context` | Project context | New domain learning |
-
-### Storage
-
-```
-~/.claude/.vibe/memory/
-├── lessons/      # Failure → Solution
-├── patterns/     # Code patterns
-├── decisions/    # Architecture decisions
-└── context/      # Project knowledge
-```
-
-### memU Integration (Optional)
-
-**Works without memU** - local file storage + grep search.
-
-With memU enabled:
-- **Semantic search**: Search by meaning, not keywords
-- **Deduplication**: 85%+ similarity check prevents duplicates
-- **Auto-sync**: Local saves sync to memU automatically
-
-**The more you use it, the smarter it gets.**
-
----
-
-## File Structure
+## Structure
 
 ```
 ~/.claude/
-├── CLAUDE.md          # Main system prompt
-├── DEFINITIONS.md     # Core definitions (SSOT)
-├── README.md          # This file
-├── LICENSE            # MIT License
-├── CONTRIBUTING.md    # Contribution guide
-├── agents/            # 13 specialized agents
-│   ├── v-analyst.md
-│   ├── v-worker.md
-│   ├── v-designer.md
-│   └── ...
-├── skills/            # 8 enhancement skills
-│   ├── vibe/
-│   ├── v-turbo/
-│   ├── v-git/
-│   ├── v-style/
-│   ├── v-evolve/
-│   ├── v-continue/
-│   ├── v-memory/
-│   └── v-compress/
-├── commands/          # Slash commands
-│   ├── vibe.md
-│   └── ...
-├── scripts/           # Helper scripts
-│   ├── v-memory.sh
-│   ├── v-compress.sh
-│   └── v-continue.sh
-└── .vibe/
-    ├── memory/        # Knowledge storage
-    │   ├── lessons/
-    │   ├── patterns/
-    │   ├── decisions/
-    │   └── context/
-    └── work-*.md      # Work tracking documents
+├── CLAUDE.md           # 5 rules
+├── settings.json       # minimal config
+└── hooks/
+    ├── hooks.json      # hook registry
+    ├── stop-guard.sh   # no proof → no stop
+    └── post-edit.sh    # auto syntax check
 ```
+
+---
+
+## The Rules
+
+From `CLAUDE.md`:
+
+1. **Prove it, don't claim it** — Show execution output before claiming done. "Should work" is banned.
+2. **Delegate exploration** — Use subagents for searching/reading. Keep main context for decisions.
+3. **Two-Strike Rule** — Same error twice → change the approach entirely.
+4. **Ask before building big** — 3+ files affected → confirm scope first.
+5. **Minimal changes** — Only change what was asked. No drive-by refactors.
+
+## The Hooks
+
+| Hook | Trigger | What it does |
+|------|---------|-------------|
+| stop-guard | Agent tries to stop | Blocks unless execution evidence (output, test results, file:line refs) is present |
+| post-edit | After Write/Edit | Runs syntax validation (Python, JS, JSON, YAML, Bash) |
+
+---
+
+## The Story: Why v5 Exists
+
+### What we built (v1 — v4)
+
+Over 4 major versions, Vibe-Claude grew into a full orchestration system:
+
+- **13 specialized agents** — analyst, planner, critic, worker, designer, conductor, tester, researcher, advisor, finder, vision, api-tester, writer
+- **8 skills** — vibe, v-turbo, v-git, v-style, v-evolve, v-continue, v-memory, v-compress
+- **5-Phase pipeline** — Routing → Interview → Recon → Planning → Execution → Verification → Polish
+- **8 hook events** — Setup, SessionStart, UserPromptSubmit, SubagentStart, TeammateIdle, TaskCompleted, Stop, PostToolUse
+- **Self-evolution system** — automatic agent creation when capability gaps were detected
+- **Memory system** — lessons, patterns, decisions, context with grep-based recall
+- **Context management** — compression, checkpointing, session handoff
+
+689 lines of markdown prompts orchestrating Claude Code like a puppet theater.
+
+### What happened
+
+**Claude Code's updates outpaced our development.**
+
+Every few weeks, Anthropic shipped features that made our layers redundant:
+
+| What we built | What Claude Code shipped |
+|--------------|------------------------|
+| v-memory (file + grep) | Auto Memory (built-in, semantic) |
+| v-compress (context compression) | Compaction API (server-side, automatic) |
+| v-continue (session restore) | Session auto-restore (built-in) |
+| v-conductor (orchestrator agent) | Agent tool + subagents (built-in) |
+| v-turbo (parallel execution) | Parallel tool calls (built-in) |
+| v-finder (file search) | Glob, Grep, Explore agent (built-in) |
+| 13 persona agents | Claude already plays every role |
+| 5-Phase system | Plan mode (built-in) |
+
+We were writing prompt instructions for things Claude already knew how to do. The 13 agents were personality wrappers. The 5-Phase system was a rigid pipeline over Claude's natural reasoning. The skills were markdown files restating built-in capabilities.
+
+**The system wasn't enhancing Claude Code. It was constraining it.**
+
+All that markdown was consuming context window — the most precious resource — to tell Claude things it already knew.
+
+### What we kept
+
+We asked: *"What does Claude Code still not do well?"*
+
+Two things:
+
+1. **It sometimes claims "done" without actually running the code.** The stop-guard hook fixes this at the process level — not a prompt suggestion, an actual gate.
+
+2. **It sometimes breaks syntax after edits.** The post-edit hook catches this immediately — automatic validation, zero context cost.
+
+Everything else was deleted. 93% reduction.
+
+### The result
+
+| | v4 | v5 |
+|-|----|----|
+| Files | 70+ | 5 |
+| Agents | 13 | 0 |
+| Skills | 8 | 0 |
+| Hooks | 8 | 2 |
+| Lines of prompts | ~689 | ~20 |
+| Context overhead | High | Near zero |
+
+---
+
+## Lessons Learned
+
+For anyone building systems on top of AI coding tools — we learned these the hard way.
+
+### 1. The platform will eat your features.
+
+We spent weeks building a memory system with file-based storage and grep search. Then Claude Code shipped Auto Memory with semantic recall. We built a context compression skill. Then Compaction API landed, server-side and automatic. We built a session restore command. It became a built-in.
+
+**Every feature we built was a bet that the platform wouldn't solve it natively. We lost every bet.**
+
+If you're building on top of an AI tool that ships updates every few weeks, ask yourself: "Will this still be needed in 3 months?" If you're not sure, don't build it. Wait. The platform is probably already working on it.
+
+### 2. Prompts are not code.
+
+We wrote 689 lines of markdown telling Claude how to behave. "NEVER stop without proof." "ALWAYS delegate exploration." "Run verification tribunal."
+
+Here's the uncomfortable truth: **a prompt is a suggestion, not a contract.** Claude can ignore every word. And sometimes it did.
+
+The only things that actually worked were the hooks — real code running at the process level, returning exit codes that the system respects. The stop-guard hook doesn't ask Claude to show evidence. It checks for evidence and blocks the stop if it's not there.
+
+**If you need a guarantee, write code. If you need a suggestion, write a prompt. Know which one you need.**
+
+### 3. Complexity has a hidden cost: context.
+
+Our 13 agents, 8 skills, and 5-Phase system looked impressive. But every one of those markdown files gets loaded into the context window. That's thousands of tokens spent before Claude writes a single line of code.
+
+Context window is Claude's working memory. Every token of system prompt is a token that can't be used for reasoning about your actual problem. We were filling Claude's brain with instructions about how to think, leaving less room for actual thinking.
+
+**The irony: our "enhancement" was making Claude dumber by stealing its context.**
+
+After removing 93% of the prompts, Claude performed better on the same tasks. Not because we added something. Because we removed what was in the way.
+
+### 4. Persona prompts are an illusion.
+
+We had 13 agents: v-analyst, v-planner, v-critic, v-worker, v-designer... Each with a personality, a role description, permission settings.
+
+But Claude doesn't become a better analyst because you tell it "you are an analyst." It's already trained on analysis. The persona file was a costume, not a capability. Claude in a v-analyst costume is the same Claude without it — except now it's spending tokens reading the costume description.
+
+**Don't tell the model what it already knows. Don't wrap capabilities in personas. Just ask for what you need.**
+
+### 5. The hardest skill is deletion.
+
+v1 took a week. v2 added agents. v3 added skills. v4 added hooks, teams, frontmatter, evolution. Each version was bigger, more complex, more "powerful."
+
+v5 deleted 93% of it.
+
+That deletion was harder than any of the building. Every file we removed was something we'd designed, tested, debugged, documented. Deleting it felt like admitting failure.
+
+But it wasn't failure. The system worked — it worked so well that the platform adopted the same ideas. Our job was done. We just needed to accept that.
+
+**If your enhancement layer keeps growing, you're probably solving problems the platform will solve better. Stop. Measure what actually helps. Delete the rest.**
+
+### 6. Find the real gaps.
+
+After deleting everything, we asked: "What does Claude Code actually fail at?"
+
+Not "what could be theoretically better" — what actually goes wrong in practice?
+
+Two things: (1) It sometimes says "done" without running the code. (2) It sometimes breaks syntax. That's it. Two problems. Two hooks. Done.
+
+**Don't build for imagined weaknesses. Watch the tool fail in practice. Fix those specific failures. Nothing more.**
 
 ---
 
 ## FAQ
 
-**Q: Do I need to know how to code?**
-A: No.
+**Q: Won't removing all the agents make it weaker?**
 
-**Q: What do I need to do?**
-A: Type `/vibe` and describe what you want.
+No. Claude Code spawns subagents on its own when needed. A markdown file saying "you are an analyst" doesn't make Claude a better analyst — it just uses context.
 
-**Q: What if it doesn't work?**
-A: Claude retries automatically. Until it works.
+**Q: What about complex multi-step tasks?**
 
-**Q: Is it expensive?**
-A: Yes. But it works.
+Use Claude Code's built-in Plan mode (`/plan`). It's more flexible than a rigid 5-Phase pipeline and doesn't cost context.
 
-**Q: Can I customize the agents?**
-A: Yes. Edit the markdown files in `~/.claude/agents/`.
+**Q: What about memory?**
 
----
+Claude Code's Auto Memory handles this natively. It's better than our grep-based system.
 
-## The Vibe Coder Manifesto
+**Q: Should I upgrade from v4?**
 
-1. **Don't think, describe** - Say what you want, not how
-2. **Trust the process** - Let Claude figure it out
-3. **Money solves problems** - Opus is worth it
-4. **Perfection is automatic** - Retries until right
-5. **Evolution is constant** - System improves itself every day
-
----
-
-## Contributing
-
-Pull requests welcome. Keep it simple. Keep it vibe.
-
----
-
-## Inspired By
-
-This project draws inspiration from:
-
-- [opencode](https://github.com/anomalyco/opencode) - Open-source AI coding assistant
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code) - Official Anthropic documentation for Claude Code
-- [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) - Multi-agent patterns and best practices
-- The open-source AI coding community
+Yes. Delete `~/.claude/agents/`, `~/.claude/skills/`, `~/.claude/commands/`, and replace with v5 files. You'll notice Claude works *better* with less instruction.
 
 ---
 
@@ -635,12 +220,10 @@ This project draws inspiration from:
 
 MIT
 
----
-
 ## Author
 
-Created with vibes by [@kks0488](https://github.com/kks0488)
+Created by [@kks0488](https://github.com/kks0488)
 
 ---
 
-**Don't think. Just vibe. Claude does the rest.**
+> *The best system is the one you don't notice.*

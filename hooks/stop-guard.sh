@@ -1,60 +1,38 @@
 #!/usr/bin/env bash
-# Stop hook for vibe-claude v4.1.0
-# "NEVER STOP UNTIL PROVEN DONE" — enforced by hook
-# If no completion proof is found in the conversation, prevents stop
+# Vibe-Claude v5.0 — Stop Guard
+# Blocks agent from stopping without execution evidence.
 
 set -euo pipefail
 
 INPUT=$(cat)
 
-# Extract the stop reason / last message context
-STOP_CONTEXT=$(echo "${INPUT}" | python3 -c "
+LAST_MSG=$(echo "${INPUT}" | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
-    # Get the last assistant message or stop reason
-    messages = data.get('messages', [])
-    if messages:
-        last = messages[-1].get('content', '')
-        print(last[:2000] if isinstance(last, str) else str(last)[:2000])
-    else:
-        print(data.get('reason', ''))
+    msgs = data.get('messages', [])
+    if msgs:
+        c = msgs[-1].get('content', '')
+        print(c[:3000] if isinstance(c, str) else str(c)[:3000])
 except:
     print('')
 " 2>/dev/null || echo "")
 
-# Check if completion proof exists
-HAS_PROOF=0
-if echo "${STOP_CONTEXT}" | grep -qi "COMPLETION PROOF\|✓ Executed.*Output\|✓ Tests.*Result\|VERDICT.*APPROVED\|all.*complete\|cancel-vibe\|CANCELLED"; then
-  HAS_PROOF=1
-fi
+ALLOW=0
 
-# Check if user explicitly cancelled
-IS_CANCEL=0
-if echo "${STOP_CONTEXT}" | grep -qi "cancel-vibe\|CANCELLED\|force.stop"; then
-  IS_CANCEL=1
-fi
+# User cancelled or just chatting
+echo "${LAST_MSG}" | grep -qiE "cancel|force.stop" && ALLOW=1
 
-if [ "${HAS_PROOF}" -eq 1 ] || [ "${IS_CANCEL}" -eq 1 ]; then
-  cat <<'EOF'
-{
-  "hookSpecificOutput": {
-    "hookEventName": "Stop",
-    "decision": "allow",
-    "reason": "Completion proof found or user cancelled."
-  }
-}
-EOF
+# Actual execution evidence
+echo "${LAST_MSG}" | grep -qiE "(exit code|passed|failed.*0|PASS|Result:|Output:)" && ALLOW=1
+
+# File:line references (proof of specific work)
+echo "${LAST_MSG}" | grep -qiE "[a-zA-Z_/]+\.[a-z]+:[0-9]+" && ALLOW=1
+
+if [ "${ALLOW}" -eq 1 ]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"Stop","decision":"allow","reason":"Evidence found."}}'
   exit 0
 else
-  cat <<'EOF'
-{
-  "hookSpecificOutput": {
-    "hookEventName": "Stop",
-    "decision": "block",
-    "reason": "No COMPLETION PROOF found. Continue working until all tasks are proven complete. Forbidden: 'I think it's done', 'Should work', 'Looks correct'."
-  }
-}
-EOF
-  exit 2  # exit 2 = block stop, force continue
+  echo '{"hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"No execution evidence. Run the code, show the output, then stop."}}'
+  exit 2
 fi
