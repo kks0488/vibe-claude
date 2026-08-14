@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "vibe-claude",
+  "version": "5.1.0",
+  "description": "Minimal evidence and syntax guardrails for Claude Code, refined through months of real use.",
+  "author": {
+    "name": "Kyoungsoo Kim",
+    "url": "https://github.com/kks0488"
+  },
+  "homepage": "https://github.com/kks0488/vibe-claude",
+  "repository": "https://github.com/kks0488/vibe-claude",
+  "license": "MIT",
+  "keywords": ["claude-code", "hooks", "verification", "developer-tools"]
+}

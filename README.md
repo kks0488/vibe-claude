@@ -6,20 +6,21 @@
 
 > Don't fight the tool. Sharpen the edge.
 
-A minimal enhancement layer for [Claude Code](https://claude.ai) — distilled from 4 major iterations down to what actually matters.
+A minimal, open-source guardrail plugin for [Claude Code](https://code.claude.com/docs) — distilled through several months of real use down to what repeatedly helped.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai)
+[![CI](https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml)
 
 ---
 
 ## What This Is
 
-5 files. 2 hooks. 5 rules. That's it.
+2 hooks. 5 rules. That's the core.
 
 Vibe-Claude adds two things Claude Code doesn't enforce natively:
 
-1. **Stop Guard** — Blocks the agent from stopping without showing execution evidence
+1. **Stop Guard** — Challenges completion claims that do not include execution evidence
 2. **Post-Edit Check** — Validates syntax after every file edit
 
 Everything else is Claude Code doing what it already does best.
@@ -28,23 +29,28 @@ Everything else is Claude Code doing what it already does best.
 
 ## Install
 
-```bash
-git clone https://github.com/kks0488/vibe-claude.git ~/.claude-vibe
-cp ~/.claude-vibe/CLAUDE.md ~/.claude/CLAUDE.md
-cp -r ~/.claude-vibe/hooks/* ~/.claude/hooks/
-cp ~/.claude-vibe/settings.json ~/.claude/settings.json
+In Claude Code:
+
+```text
+/plugin marketplace add kks0488/vibe-claude
+/plugin install vibe-claude@vibe-claude
 ```
+
+The plugin supplies the hooks without changing your selected model. `CLAUDE.md` is an optional project-instruction template; copy or adapt it only if its five rules fit your project.
+
+For local development, clone the repository and run `claude --plugin-dir ./vibe-claude`.
 
 ## Structure
 
 ```
-~/.claude/
-├── CLAUDE.md           # 5 rules
-├── settings.json       # minimal config
-└── hooks/
-    ├── hooks.json      # hook registry
-    ├── stop-guard.sh   # no proof → no stop
-    └── post-edit.sh    # auto syntax check
+vibe-claude/
+├── .claude-plugin/     # plugin and marketplace manifests
+├── hooks/
+│   ├── hooks.json      # hook registry
+│   ├── stop-guard.sh   # completion claim → evidence check
+│   └── post-edit.sh    # lightweight syntax checks
+├── tests/              # hook regression tests
+└── CLAUDE.md           # optional 5-rule template
 ```
 
 ---
@@ -56,17 +62,23 @@ From `CLAUDE.md`:
 1. **Prove it, don't claim it** — Show execution output before claiming done. "Should work" is banned.
 2. **Delegate exploration** — Use subagents for searching/reading. Keep main context for decisions.
 3. **Two-Strike Rule** — Same error twice → change the approach entirely.
-4. **Ask before building big** — 3+ files affected → confirm scope first.
+4. **Clarify material ambiguity** — Ask only when an unresolved choice would materially change the result.
 5. **Minimal changes** — Only change what was asked. No drive-by refactors.
 
 ## The Hooks
 
 | Hook | Trigger | What it does |
 |------|---------|-------------|
-| stop-guard | Agent tries to stop | Blocks unless execution evidence (output, test results, file:line refs) is present |
+| stop-guard | Agent tries to stop | For completion claims, blocks once unless test/build/lint/typecheck/execution evidence is present |
 | post-edit | After Write/Edit | Runs syntax validation (Python, JS, JSON, YAML, Bash) |
 
 ---
+
+## v5.1: Updated After Months of Use
+
+The March 2026 v5 release was intentionally small. Continued use exposed a second class of problems: the old hooks depended on stale input fields, could loop after blocking, accepted source references as proof, interpolated filenames into executable snippets, and forced the `opus` model globally.
+
+The August 2026 v5.1 update fixes those operational problems, adds regression tests and CI, and packages the project as a native Claude Code plugin. The detailed findings are in [`docs/RESEARCH_2026-08.md`](docs/RESEARCH_2026-08.md), and release-level changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## The Story: Why v5 Exists
 
@@ -210,15 +222,15 @@ Use Claude Code's built-in Plan mode (`/plan`). It's more flexible than a rigid 
 
 Claude Code's Auto Memory handles this natively. It's better than our grep-based system.
 
-**Q: Should I upgrade from v4?**
+**Q: Should I upgrade from v4 or v5.0?**
 
-Yes. Delete `~/.claude/agents/`, `~/.claude/skills/`, `~/.claude/commands/`, and replace with v5 files. You'll notice Claude works *better* with less instruction.
+Yes. Move from v4 to the small v5 design. v5.0 users should update because v5.1 follows the current hook schema, prevents continuation loops, fixes unsafe path interpolation, and no longer overrides model choice.
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE) © Kyoungsoo Kim and contributors.
 
 ## Author
 

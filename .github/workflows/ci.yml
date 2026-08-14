@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON
+        run: |
+          python3 -m json.tool .claude-plugin/plugin.json >/dev/null
+          python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
+          python3 -m json.tool hooks/hooks.json >/dev/null
+      - name: Check shell syntax
+        run: bash -n hooks/*.sh tests/*.sh
+      - name: Test hooks
+        run: bash tests/hooks.bats.sh

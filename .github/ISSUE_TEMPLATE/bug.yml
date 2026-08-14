@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a reproducible Vibe-Claude problem
+title: "[Bug]: "
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the expected behavior and the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Provide minimal steps and relevant hook input or output with secrets removed.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Versions
+      description: Vibe-Claude, Claude Code, and operating system versions.
+    validations:
+      required: true

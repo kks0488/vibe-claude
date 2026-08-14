@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-guard.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/stop-guard.sh"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-edit.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/post-edit.sh"
           }
         ]
       }
