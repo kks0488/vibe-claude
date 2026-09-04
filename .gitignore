@@ -46,3 +46,10 @@ lessons-learned.md
 
 # Promotional materials (keep separate)
 promo/
+PROMO.md
+
+# Local dev
+.env.local
+.env.*.local
+.env
+PROJECT_PORTS.md
