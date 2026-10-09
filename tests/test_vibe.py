@@ -25,18 +25,20 @@ class Project(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp(prefix="vibe-test-")).resolve()
         self.bin = Path(tempfile.mkdtemp(prefix="vibe-bin-")).resolve()
         self.home = Path(tempfile.mkdtemp(prefix="vibe-home-")).resolve()
+        self.tmproot = Path(tempfile.mkdtemp(prefix="vibe-tmproot-")).resolve()  # stands in for /tmp
         self.sid, self.pid = "s1", "p1"
 
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
         shutil.rmtree(self.bin, ignore_errors=True)
         shutil.rmtree(self.home, ignore_errors=True)
+        shutil.rmtree(self.tmproot, ignore_errors=True)
 
     def env(self):
         # A PATH without the real codex, so tests never call a real model.
         return dict(os.environ, CLAUDE_PROJECT_DIR=str(self.dir), PATH=f"{self.bin}:/usr/bin:/bin", LANG="en_US.UTF-8",
                     VIBE_HOME=str(self.home), VIBE_STOP_WAIT="5",
-                    VIBE_TEMP_ROOTS="/tmp:/private/tmp")  # test projects live in the system temp folder
+                    VIBE_TEMP_ROOTS=str(self.tmproot))  # test projects themselves live in the real temp folder
 
     def hook(self, event, **data):
         data.setdefault("session_id", self.sid)
@@ -494,11 +496,11 @@ class GuardTests(Project):
     def test_heredoc_text_and_known_variables_are_understood(self):
         cmd = "cat > notes.md <<'EOF'\nrm -rf ~\nDROP TABLE users;\nEOF\necho done"
         self.assertIsNone(self.pre("Bash", command=cmd))
-        self.assertIsNone(self.pre("Bash", command="S=/tmp/shots && rm -rf $S/cut_*.png ${S}/old"))
+        self.assertIsNone(self.pre("Bash", command=f"S={self.tmproot}/shots && rm -rf $S/cut_*.png ${{S}}/old"))
         self.assertIsNone(self.pre("Bash", command="rm -rf ../elsewhere/src/__pycache__"))
 
     def test_searching_or_dry_runs_are_not_dangerous(self):
-        for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", "rm -rf /tmp/build-cache",
+        for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", f"rm -rf {self.tmproot}/build-cache",
                     "echo 'DROP TABLE users;'"):
             self.assertIsNone(self.pre("Bash", command=cmd), cmd)
 

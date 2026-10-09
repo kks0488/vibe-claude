@@ -19,7 +19,7 @@ v6 is built for people who don't read code. Proof is now based on what actually 
 
 - Replaced `stop-guard.sh` and `post-edit.sh` with one Python script, `hooks/vibe.py`.
 - The Stop gate no longer pattern-matches words like "done" in the final message, which caused false blocks (for example "abandoned").
-- README rewritten around what the plugin does; the v1–v5 story moved to `docs/HISTORY.md`.
+- README rewritten for people who don't read code, in English and Korean (`README.ko.md`), with a banner, a promo video and animated terminal demos. The art was generated with Codex image generation and the motion graphics made with Remotion (`media/`). The v1–v5 story moved to `docs/HISTORY.md`.
 - CI runs the unit tests and `claude plugin validate --strict`, and checks that version numbers match.
 
 ## v5.1.0 — 2026-08-14

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 380" role="img" aria-labelledby="t d">
+<title id="t">vibe-claude proof demo</title>
+<desc id="d">Claude says done without running anything, vibe-claude stops it, Claude runs the tests, and a receipt built from the real exit codes appears.</desc>
+<style>
+text{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;font-size:17px;white-space:pre}
+@keyframes a0{0%,1.11%{opacity:0}1.91%,93%{opacity:1}97%,100%{opacity:0}}.l0{opacity:0;animation:a0 18.0s linear infinite}@keyframes t0{0%,1.91%{transform:translateX(0)}6.94%,100%{transform:translateX(920px)}}.c0{animation:t0 18.0s linear infinite}@keyframes a1{0%,8.89%{opacity:0}9.69%,93%{opacity:1}97%,100%{opacity:0}}.l1{opacity:0;animation:a1 18.0s linear infinite}@keyframes a2{0%,14.44%{opacity:0}15.24%,93%{opacity:1}97%,100%{opacity:0}}.l2{opacity:0;animation:a2 18.0s linear infinite}@keyframes t2{0%,15.24%{transform:translateX(0)}20.28%,100%{transform:translateX(920px)}}.c2{animation:t2 18.0s linear infinite}@keyframes a3{0%,23.33%{opacity:0}24.13%,93%{opacity:1}97%,100%{opacity:0}}.l3{opacity:0;animation:a3 18.0s linear infinite}@keyframes a4{0%,33.33%{opacity:0}34.13%,93%{opacity:1}97%,100%{opacity:0}}.l4{opacity:0;animation:a4 18.0s linear infinite}@keyframes a5{0%,38.89%{opacity:0}39.69%,93%{opacity:1}97%,100%{opacity:0}}.l5{opacity:0;animation:a5 18.0s linear infinite}@keyframes a6{0%,46.67%{opacity:0}47.47%,93%{opacity:1}97%,100%{opacity:0}}.l6{opacity:0;animation:a6 18.0s linear infinite}@keyframes t6{0%,47.47%{transform:translateX(0)}56.78%,100%{transform:translateX(920px)}}.c6{animation:t6 18.0s linear infinite}@keyframes a7{0%,57.78%{opacity:0}58.58%,93%{opacity:1}97%,100%{opacity:0}}.l7{opacity:0;animation:a7 18.0s linear infinite}@keyframes a8{0%,70.00%{opacity:0}70.80%,93%{opacity:1}97%,100%{opacity:0}}.l8{opacity:0;animation:a8 18.0s linear infinite}
+@media (prefers-reduced-motion: reduce){[class^=l]{animation:none!important;opacity:1!important}[class^=c]{display:none}}
+</style>
+<rect width="920" height="380" rx="14" fill="#0d1117"/>
+<rect x="0.5" y="0.5" width="919" height="379" rx="14" fill="none" stroke="#30363d"/>
+<circle cx="26" cy="24" r="6" fill="#ff5f57"/><circle cx="46" cy="24" r="6" fill="#febc2e"/><circle cx="66" cy="24" r="6" fill="#28c840"/>
+<text x="460.0" y="29" fill="#8b949e" text-anchor="middle" style="font-size:14px">claude · vibe-claude</text>
+<g class="l0"><text x="28" y="74" fill="#d97757" font-weight="700">›</text><text x="54" y="74" fill="#f0f6fc" font-weight="700">make the checkout button green</text><rect class="c0" x="52" y="52" width="920" height="30" fill="#0d1117"/></g>
+<g class="l1"><circle cx="34" cy="98" r="4.5" fill="#79c0ff"/><text x="54" y="104" fill="#e6edf3">Edit  app/checkout.tsx</text></g>
+<g class="l2"><circle cx="34" cy="128" r="4.5" fill="#e6edf3"/><text x="54" y="134" fill="#e6edf3">Done! The button is green now.</text><rect class="c2" x="52" y="112" width="920" height="30" fill="#0d1117"/></g>
+<g class="l3"><text x="70" y="164" fill="#ff7b72" font-weight="700">vibe: you changed code but nothing ran to check it. Run the tests.</text></g>
+<g class="l4"><circle cx="34" cy="188" r="4.5" fill="#79c0ff"/><text x="54" y="194" fill="#e6edf3">Bash  <tspan fill="#79c0ff">npm test</tspan></text></g>
+<g class="l5"><text x="70" y="224" fill="#3fb950">✓ 24 passed  (exit 0, recorded by the hook)</text></g>
+<g class="l6"><circle cx="34" cy="248" r="4.5" fill="#e6edf3"/><text x="54" y="254" fill="#e6edf3">Done. Open http://localhost:3000/checkout to see it.</text><rect class="c6" x="52" y="232" width="920" height="30" fill="#0d1117"/></g>
+<g class="l7"><rect x="60" y="263" width="824" height="29" rx="6" fill="#3fb950" fill-opacity="0.13" stroke="#3fb950" stroke-opacity="0.55"/><text x="70" y="284" fill="#3fb950" font-weight="700">vibe ✓ 1 file changed · checked: npm test · Codex review running</text></g>
+<g class="l8"><text x="70" y="314" fill="#bc8cff">Codex (a different model) reviewed the change: LGTM</text></g>
+</svg>

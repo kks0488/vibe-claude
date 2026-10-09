@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 380" role="img" aria-labelledby="t d">
+<title id="t">vibe-claude 안전장치와 되돌리기 데모</title>
+<desc id="d">지우기 전에 파일을 보관하고, 되돌릴 수 없는 데이터베이스 초기화 앞에서 Claude가 멈춰 판단하고, 되돌리기로 파일이 돌아와요. 사용자에게는 기술적인 질문을 하지 않아요.</desc>
+<style>
+text{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;font-size:17px;white-space:pre}
+@keyframes a0{0%,1.11%{opacity:0}1.91%,93%{opacity:1}97%,100%{opacity:0}}.l0{opacity:0;animation:a0 18.0s linear infinite}@keyframes t0{0%,1.91%{transform:translateX(0)}4.44%,100%{transform:translateX(920px)}}.c0{animation:t0 18.0s linear infinite}@keyframes a1{0%,8.89%{opacity:0}9.69%,93%{opacity:1}97%,100%{opacity:0}}.l1{opacity:0;animation:a1 18.0s linear infinite}@keyframes a2{0%,13.89%{opacity:0}14.69%,93%{opacity:1}97%,100%{opacity:0}}.l2{opacity:0;animation:a2 18.0s linear infinite}@keyframes a3{0%,23.33%{opacity:0}24.13%,93%{opacity:1}97%,100%{opacity:0}}.l3{opacity:0;animation:a3 18.0s linear infinite}@keyframes a4{0%,28.33%{opacity:0}29.13%,93%{opacity:1}97%,100%{opacity:0}}.l4{opacity:0;animation:a4 18.0s linear infinite}@keyframes a5{0%,38.89%{opacity:0}39.69%,93%{opacity:1}97%,100%{opacity:0}}.l5{opacity:0;animation:a5 18.0s linear infinite}@keyframes t5{0%,39.69%{transform:translateX(0)}44.53%,100%{transform:translateX(920px)}}.c5{animation:t5 18.0s linear infinite}@keyframes a6{0%,53.33%{opacity:0}54.13%,93%{opacity:1}97%,100%{opacity:0}}.l6{opacity:0;animation:a6 18.0s linear infinite}@keyframes t6{0%,54.13%{transform:translateX(0)}57.81%,100%{transform:translateX(920px)}}.c6{animation:t6 18.0s linear infinite}@keyframes a7{0%,62.22%{opacity:0}63.02%,93%{opacity:1}97%,100%{opacity:0}}.l7{opacity:0;animation:a7 18.0s linear infinite}@keyframes a8{0%,68.89%{opacity:0}69.69%,93%{opacity:1}97%,100%{opacity:0}}.l8{opacity:0;animation:a8 18.0s linear infinite}
+@media (prefers-reduced-motion: reduce){[class^=l]{animation:none!important;opacity:1!important}[class^=c]{display:none}}
+</style>
+<rect width="920" height="380" rx="14" fill="#0d1117"/>
+<rect x="0.5" y="0.5" width="919" height="379" rx="14" fill="none" stroke="#30363d"/>
+<circle cx="26" cy="24" r="6" fill="#ff5f57"/><circle cx="46" cy="24" r="6" fill="#febc2e"/><circle cx="66" cy="24" r="6" fill="#28c840"/>
+<text x="460.0" y="29" fill="#8b949e" text-anchor="middle" style="font-size:14px">claude · vibe-claude</text>
+<g class="l0"><text x="28" y="74" fill="#d97757" font-weight="700">›</text><text x="54" y="74" fill="#f0f6fc" font-weight="700">예전 스크린샷 정리해줘</text><rect class="c0" x="52" y="52" width="920" height="30" fill="#0d1117"/></g>
+<g class="l1"><circle cx="34" cy="98" r="4.5" fill="#79c0ff"/><text x="54" y="104" fill="#e6edf3">Bash  <tspan fill="#79c0ff">rm -rf qa/shots</tspan></text></g>
+<g class="l2"><text x="70" y="134" fill="#d29922">vibe: git에 없는 파일 212개를 지우기 전에 휴지통에 보관했어요 (7일)</text></g>
+<g class="l3"><circle cx="34" cy="158" r="4.5" fill="#79c0ff"/><text x="54" y="164" fill="#e6edf3">Bash  <tspan fill="#79c0ff">supabase db reset</tspan></text></g>
+<g class="l4"><text x="70" y="194" fill="#ff7b72" font-weight="700">vibe: 데이터베이스를 지우고 되돌릴 수 없어요. 사용자가 요청했나요?</text></g>
+<g class="l5"><circle cx="34" cy="218" r="4.5" fill="#e6edf3"/><text x="54" y="224" fill="#e6edf3">스크린샷만 요청하셨으니 데이터베이스는 그대로 뒀어요.</text><rect class="c5" x="52" y="202" width="920" height="30" fill="#0d1117"/></g>
+<g class="l6"><text x="28" y="254" fill="#d97757" font-weight="700">›</text><text x="54" y="254" fill="#f0f6fc" font-weight="700">아 잠깐, 그 스크린샷 필요했어. 되돌려줘</text><rect class="c6" x="52" y="232" width="920" height="30" fill="#0d1117"/></g>
+<g class="l7"><circle cx="34" cy="278" r="4.5" fill="#79c0ff"/><text x="54" y="284" fill="#e6edf3">/vibe-claude:undo  →  휴지통에서 복구</text></g>
+<g class="l8"><text x="70" y="314" fill="#3fb950">✓ 파일 212개가 돌아왔어요. 다른 건 그대로예요.</text></g>
+</svg>
