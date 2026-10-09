@@ -785,12 +785,13 @@ def rm_verdict(toks, root, cwd=None):
     return None, "", "", []
 
 
-def git_affected(cwd, key):
+def git_affected(cwd, key, git_args=()):
     """Files a git reset/checkout/clean in `cwd` would overwrite or delete, as absolute paths."""
     rc, top, _ = run(["git", "-C", cwd, "rev-parse", "--show-toplevel"], timeout=10)
     if rc:
         return [cwd]
-    args = ["ls-files", "-z", "--others", "--exclude-standard"] if key == "clean" else ["diff", "-z", "--name-only", "HEAD"]
+    rev = next((a for a in list(git_args)[1:] if not a.startswith("-")), "HEAD") if key == "reset" else "HEAD"
+    args = ["ls-files", "-z", "--others", "--exclude-standard"] if key == "clean" else ["diff", "-z", "--name-only", rev, "--"]
     rc, out, _ = run(["git", "-C", top.strip(), *args], timeout=20)
     return [os.path.join(top.strip(), rel) for rel in out.split("\0") if rel][:2000] if rc == 0 else [cwd]
 
@@ -838,7 +839,7 @@ def danger(cmd, root, base=None, depth=0):
                 en, ko, helps = GIT_EFFECTS[key]
                 if key == "clean" and any("x" in a.lower() for a in args if a.startswith("-") and not a.startswith("--")):
                     helps = False  # -x also deletes ignored files, which are not in the backup
-                hit = ("ask", en, ko, helps and inside(git_cwd, root), git_affected(git_cwd, key))
+                hit = ("ask", en, ko, helps and inside(git_cwd, root), git_affected(git_cwd, key, args))
         else:
             words = " ".join(toks[1:])
             for progs, pattern, en, ko, helps in DANGER:
@@ -1156,6 +1157,18 @@ MUTATES = re.compile(r"(^|[;&|(]\s*|\b(sudo|env|xargs)\s+)(rm|rmdir|unlink|mv|cp
                      r"|\b(npx|pnpm|yarn|npm)\s+.*\b(codemod|prettier\s+--write|eslint\s+--fix)|--fix\b|--write\b")
 
 
+def in_project(check, root):
+    """The check ran in this project and does not point at files outside it."""
+    if not inside(check["cwd"], root):
+        return False
+    for arg in check["pos"]:
+        value = arg.split("=", 1)[1] if arg.startswith("-") and "=" in arg else arg
+        path = os.path.join(check["cwd"], os.path.expanduser(value))
+        if (value.startswith(("/", "~", "..")) or os.path.exists(path)) and not inside(path, root):
+            return False
+    return True
+
+
 def tool_missing(prog, out, code):
     """The checker itself is not installed (no evidence either way), as opposed to the project failing."""
     p = re.escape(prog)
@@ -1180,7 +1193,7 @@ def on_post_tool(v, failed=False):
             err = str(v.data.get("error", ""))
             m = re.match(r"Exit code (\d+)", err)
             code = int(m.group(1)) if m else 1
-            found = [c for c in found if inside(c["cwd"], v.root)]
+            found = [c for c in found if in_project(c, v.root)]
             if not found or len(found) == 1 and tool_missing(found[0]["prog"], err, code):
                 return
             c = found[-1]
@@ -1188,7 +1201,7 @@ def on_post_tool(v, failed=False):
             return
         if isinstance(resp, dict) and resp.get("interrupted"):
             return
-        found = [c for c in found if inside(c["cwd"], v.root)]  # checks of another project prove nothing here
+        found = [c for c in found if in_project(c, v.root)]  # checks of another project prove nothing here
         for c in found:
             v.log(ev="run", cmd=cmd[:500], kind=c["kind"], prog=c["prog"], pos=c["pos"], cwd=c["cwd"],
                   exit=0 if c["trusted"] else None, ok=c["trusted"])
@@ -1242,10 +1255,12 @@ def proof(v, files=None):
     times = [info.get("t", 0)]
     for rel in files:
         times.append(edits.get(rel, 0))
+        if rel not in edits:  # changed by a shell command, which may keep or fake the old file time (cp -p)
+            times.extend(mutations[-1:])
         try:
             times.append(min((v.root / rel).stat().st_mtime, time.time()))
-        except OSError:  # deleted (or unknown): it changed no earlier than the last file-changing shell command
-            times.extend(mutations[-1:])
+        except OSError:
+            pass
     last_change = max(times)
     runs = sorted((e for e in turn if e.get("ev") == "run" and e["t"] >= last_change), key=lambda e: e["t"])
     passed, failed, unclear = [], [], []
@@ -1413,13 +1428,15 @@ def on_codex(v):
     if not before or not after:
         return 0
     names = v.changed(before, after) or []
-    paths = [rel for _, rel in names if not SECRET_FILES.search(rel)]
-    _, keyed, _ = v.git("grep", "-l", "-z", "-E", "BEGIN [A-Z0-9 ]*PRIVATE KEY", after, "--", *paths[:400]) if paths else (0, "", "")
+    paths = [rel for _, rel in names if not SECRET_FILES.search(rel)][:400]
+    rc, keyed, _ = v.git("grep", "-l", "-z", "-E", "BEGIN [A-Z0-9 ]*PRIVATE KEY", after, "--", *paths) if paths else (1, "", "")
+    if rc not in (0, 1):
+        return 0  # could not scan for keys: send nothing
     holding_keys = {k.split(":", 1)[1] for k in keyed.split("\0") if ":" in k}
     paths = [rel for rel in paths if rel not in holding_keys]
     if not paths:
         return 0
-    _, diff, _ = v.git("diff", "--no-color", before, after, "--", *[":(literal)" + rel for rel in paths[:400]])
+    _, diff, _ = v.git("diff", "--no-color", before, after, "--", *[":(literal)" + rel for rel in paths])
     if not diff.strip():
         return 0
     digest = hashlib.sha1(diff.encode()).hexdigest()

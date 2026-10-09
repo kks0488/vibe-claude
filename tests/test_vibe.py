@@ -239,6 +239,7 @@ class ProofTests(Project):
     def test_checks_of_another_project_prove_nothing(self):
         self.edit("app.py")
         self.ran("cd ../some-other-project && pytest")
+        self.ran("pytest /elsewhere/tests")
         self.assertIn("nothing was run", self.stop()["reason"])
 
     def test_skipping_the_failing_tests_does_not_hide_the_failure(self):
@@ -272,6 +273,19 @@ class ProofTests(Project):
         self.assertIn("Regression", self.stop()["reason"])
         out = self.stop("Still failing; open localhost to see.", active=True)
         self.assertIn("vibe ✗", out["systemMessage"])
+
+    def test_copy_that_keeps_the_old_file_time_still_needs_a_check(self):
+        self.write("app.py", "x = 1\n")
+        old = self.write("old.py", "x = 0\n")
+        os.utime(old, (1, 1))
+        self.hook("prompt", prompt="restore old", prompt_id="c1")
+        self.pid = "c1"
+        self.write("app.py", "x = 2\n")
+        self.ran("python3 app.py")
+        time.sleep(0.05)
+        shutil.copy2(old, self.dir / "app.py")
+        self.hook("post-tool", tool_name="Bash", tool_input={"command": "cp -p old.py app.py"}, tool_response={"stdout": ""})
+        self.assertEqual(self.stop()["decision"], "block")
 
     def test_background_work_ends_honestly_without_blocking(self):
         self.edit("app.py")
@@ -388,6 +402,21 @@ class GuardTests(Project):
         self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
         out = self.pre("Bash", command="git -C ../other reset --hard")
         self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_reset_to_an_older_commit_checks_the_files_it_would_remove(self):
+        git = lambda *args: subprocess.run(["git", "-C", str(self.dir), "-c", "user.name=t", "-c", "user.email=t@t",
+                                            *args], capture_output=True, check=True)
+        git("init", "-q")
+        self.write("a.py", "1")
+        git("add", "-A")
+        git("commit", "-qm", "one")
+        self.write("video.bin", "x" * 6_000_000)  # too large for the backup
+        git("add", "-A")
+        git("commit", "-qm", "two")
+        out = self.pre("Bash", command="git reset --hard HEAD~1")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+        out = self.pre("Bash", command="git reset --hard")  # clean tree: nothing to lose, backup covers it
+        self.assertIn("backup of your files was saved", out["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_ignored_files_inside_a_folder_void_the_backup_promise(self):
         self.write(".gitignore", "*.secret\n")
