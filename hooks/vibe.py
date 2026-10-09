@@ -58,6 +58,8 @@ MSG = {
                      "vibe ⚠ 파일 {n}개 변경 · 확인 안 됨: 실행해서 확인한 기록이 없어요{codex} · 되돌리기: /vibe-claude:undo"),
     "receipt_fail": ("vibe ✗ {n} file(s) changed · check FAILED: {cmd} · undo: /vibe-claude:undo",
                      "vibe ✗ 파일 {n}개 변경 · 검사 실패: {cmd} · 되돌리기: /vibe-claude:undo"),
+    "receipt_partial": ("vibe ⚠ {n} file(s) changed · checked: {checks}, but {cmd} gave no clear result{codex} · undo: /vibe-claude:undo",
+                        "vibe ⚠ 파일 {n}개 변경 · 확인됨: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} · 되돌리기: /vibe-claude:undo"),
     "codex_wait": (" · Codex review running", " · Codex 검토 중"),
     "ask_head": ("⚠ Hard to undo: {what}.", "⚠ 되돌리기 어려운 명령이에요: {what}."),
     "ask_files": ("A backup of your files was saved just now (/vibe-claude:undo).",
@@ -213,7 +215,11 @@ class Vibe:
                 and time.time() > st.get("snap_paused_until", 0))
 
     def snapshot(self, kind, label=""):
-        """Save the project's files; return the snapshot id, or None when no backup was made."""
+        """Save the project's files; return the snapshot id, or None when no backup was made.
+
+        Every snapshot is a standalone commit with its own ref (refs/snaps/<time>), so pruning old ones
+        never changes the id of a recent one.
+        """
         if not self.snapshots_on():
             return None
         repo = self.dir / "shadow.git"
@@ -226,16 +232,7 @@ class Vibe:
                 run(["git", "--git-dir", str(repo), "config", key, value])
             (repo / "info").mkdir(exist_ok=True)
             (repo / "info" / "exclude").write_text(SHADOW_EXCLUDES)
-        # Skip very large files so backups stay small and fast.
-        _, out, _ = self.git("ls-files", "-z", "--others", "--modified", "--exclude-standard", timeout=30)
-        big = []
-        for rel in filter(None, out.split("\0")):
-            try:
-                if (self.root / rel).stat().st_size > MAX_FILE:
-                    big.append("/" + rel.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?"))
-            except OSError:
-                pass
-        (repo / "info" / "exclude").write_text(SHADOW_EXCLUDES + "\n".join(big) + "\n")
+        self.exclude_big_files(repo)
         started = time.time()
         rc, _, _ = self.git("add", "-A", ".", timeout=40)
         if rc == 124 or time.time() - started > 20:  # too slow for this project: pause for a day
@@ -246,39 +243,56 @@ class Vibe:
         if rc:
             return None
         tree = tree.strip()
-        rc, head, _ = self.git("rev-parse", "-q", "--verify", "refs/heads/snaps")
-        head = head.strip() if rc == 0 else ""
-        if head:
-            _, head_tree, _ = self.git("rev-parse", head + "^{tree}")
-            if head_tree.strip() == tree and kind not in ("turn", "undo"):
-                return head
+        latest = self.snapshots(1)
+        if latest and kind not in ("turn", "undo"):
+            _, head_tree, _ = self.git("rev-parse", latest[0]["sha"] + "^{tree}")
+            if head_tree.strip() == tree:
+                return latest[0]["sha"]
         meta = json.dumps({"t": time.time(), "kind": kind, "label": label[:120]}, ensure_ascii=False)
-        rc, commit, _ = self.git(*(["commit-tree", tree, "-m", meta] + (["-p", head] if head else [])))
+        rc, commit, _ = self.git("commit-tree", tree, "-m", meta)
         if rc:
             return None
         commit = commit.strip()
-        self.git("update-ref", "refs/heads/snaps", commit)
+        self.git("update-ref", f"refs/snaps/{time.time():017.6f}-{commit[:8]}", commit)
         return commit
 
+    def exclude_big_files(self, repo):
+        """Keep files over MAX_FILE out of snapshots, remembering them across runs."""
+        big_file = repo / "big-files"
+        try:
+            known = set(filter(None, big_file.read_text().split("\0")))
+        except OSError:
+            known = set()
+        _, out, _ = self.git("ls-files", "-z", "--others", "--cached", "--exclude-standard", timeout=30)
+        big = set()
+        for rel in known | set(filter(None, out.split("\0"))):
+            try:
+                if (self.root / rel).is_file() and (self.root / rel).stat().st_size > MAX_FILE:
+                    big.add(rel)
+            except OSError:
+                pass
+        big_file.write_text("\0".join(sorted(big)))
+        escape = lambda rel: "/" + re.sub(r"([\\*?\[\]!#])", r"\\\1", rel)
+        (repo / "info" / "exclude").write_text(SHADOW_EXCLUDES + "\n".join(escape(r) for r in sorted(big)) + "\n")
+        for rel in big:  # ignore rules do not apply to files already in the index
+            self.git("rm", "-q", "--cached", "--ignore-unmatch", "--", rel)
+
     def prune(self):
-        """Keep the newest KEEP_SNAPSHOTS snapshots and drop the rest from disk."""
-        rc, count, _ = self.git("rev-list", "--count", "refs/heads/snaps")
-        if rc or int(count.strip() or 0) <= KEEP_SNAPSHOTS * 2:
+        """Delete all but the newest KEEP_SNAPSHOTS snapshots (recent ids stay valid)."""
+        rc, out, _ = self.git("for-each-ref", "--sort=-refname", "--format=%(refname)", "refs/snaps/")
+        refs = out.split()
+        if rc or len(refs) <= KEEP_SNAPSHOTS + 20:
             return
-        rc, out, _ = self.git("log", "-n", str(KEEP_SNAPSHOTS), "--format=%T%x00%s", "refs/heads/snaps")
-        parent = ""
-        for line in reversed(out.splitlines()):
-            tree, _, meta = line.partition("\0")
-            rc, commit, _ = self.git(*(["commit-tree", tree, "-m", meta] + (["-p", parent] if parent else [])))
-            if rc:
-                return
-            parent = commit.strip()
-        self.git("update-ref", "refs/heads/snaps", parent)
-        self.git("reflog", "expire", "--expire=now", "--all")
+        keep = {s.get("snap") for s in self.load("state.json", {}).get("turns", {}).values()}
+        for ref in refs[KEEP_SNAPSHOTS:]:
+            _, sha, _ = self.git("rev-parse", ref)
+            if sha.strip() not in keep:
+                self.git("update-ref", "-d", ref)
         self.git("gc", "-q", "--prune=now", timeout=300)
 
     def snapshots(self, limit=20):
-        rc, out, _ = self.git("log", "-n", str(limit), "--format=%H %s", "refs/heads/snaps")
+        rc, out, _ = self.git("for-each-ref", "--sort=-refname", f"--count={limit}",
+                              "--format=%(objectname) %(contents:subject)", "refs/snaps/")
         snaps = []
         if rc:
             return snaps
@@ -297,7 +311,7 @@ class Vibe:
             return None
         rc, sha, _ = self.git("rev-parse", "-q", "--verify", snap_id + "^{commit}")
         sha = sha.strip()
-        if rc or self.git("merge-base", "--is-ancestor", sha, "refs/heads/snaps")[0]:
+        if rc or not self.git("for-each-ref", "--points-at", sha, "refs/snaps/")[1].strip():
             return None
         return sha
 
@@ -306,9 +320,11 @@ class Vibe:
         return set(filter(None, out.split("\0"))) if rc == 0 else set()
 
     def changed(self, before, after):
-        """[(status, path)] between two snapshots, excluding nothing."""
+        """[(status, path)] between two snapshots, or None when they cannot be compared."""
         rc, out, _ = self.git("diff", "--name-status", "-z", "--no-renames", before, after)
-        parts = out.split("\0") if rc == 0 else []
+        if rc:
+            return None
+        parts = out.split("\0")
         return [(parts[i], parts[i + 1]) for i in range(0, len(parts) - 1, 2) if parts[i]]
 
     def restore(self, sha):
@@ -332,9 +348,11 @@ class Vibe:
                 full = self.root / rel
                 if rel in target and full.is_dir() and not full.is_symlink():
                     problems.append(rel)  # a folder now sits where a file goes; it may hold unsaved files
+                elif rel in target and (full.is_file() or full.is_symlink()) and rel not in current:
+                    problems.append(rel)  # an existing file that is not in the backup would be overwritten
         if problems:
-            return False, ("stopped without changing anything: these paths changed shape since then and restoring "
-                           "could delete files that have no backup: " + ", ".join(sorted(problems)[:5]))
+            return False, ("stopped without changing anything: restoring would overwrite or delete files that have "
+                           "no backup (ignored or too large): " + ", ".join(sorted(problems)[:5]))
         index = self.dir / "restore.index"
         try:
             if self.git("read-tree", sha, index=index)[0]:
@@ -349,6 +367,29 @@ class Vibe:
             if (p.is_file() or p.is_symlink()) and inside(p.parent, self.root):
                 p.unlink()
         return True, before
+
+    def unsaved_under(self, targets):
+        """True when a target holds files the backup does not cover (ignored, too large, or outside)."""
+        for target in targets:
+            path = os.path.realpath(target)
+            if not inside(path, self.root):
+                return True
+            rel = os.path.relpath(path, self.root)
+            if rel == ".":
+                return True
+            if self.git("check-ignore", "-q", "--no-index", rel)[0] == 0:
+                return True
+            _, out, _ = self.git("ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory",
+                                 "--", rel, timeout=30)
+            if out.strip("\0"):
+                return True
+            try:
+                big = set(filter(None, (self.dir / "shadow.git" / "big-files").read_text().split("\0")))
+            except OSError:
+                big = set()
+            if any(b == rel or b.startswith(rel.rstrip("/") + "/") for b in big):
+                return True
+        return False
 
 
 # --------------------------------------------------------------------------- reading shell commands
@@ -544,35 +585,60 @@ def suggest_checks(root):
 
 
 def checks_in(cmd, root=None, base=None):
-    """Find checks in a command. Returns [{kind, prog, pos, trusted, argv, cwd}].
+    """Find checks in a command. Returns [{kind, prog, pos, trusted, argv, cwd, simple}].
 
-    `trusted` means the command's exit code really reflects that check: everything after it is joined
-    with `&&` (or `|` under `set -o pipefail`), so a 0 exit means the check passed.
+    `trusted` means the command's exit code really reflects that check: it ran unconditionally (no `||`
+    before it) and everything after it is joined with `&&` (or `|` under `set -o pipefail`).
     """
     segs = segments(cmd)
-    found, pipefail, cwd = [], False, None
+    here = os.path.realpath(str(base or root or "."))
+    found, pipefail, cwd = [], False, here
     for i, (op, toks) in enumerate(segs):
         if not toks:
             continue
         if toks[0] == "set" and "pipefail" in toks:
             pipefail = not any(x.startswith("+") for x in toks)
             continue
-        if toks[0] == "cd" and len(toks) > 1 and op in ("", "&&"):
-            cwd = os.path.join(cwd or str(base or root or "."), os.path.expanduser(toks[1]))
+        if toks[0] == "cd" and len(toks) > 1:
+            cwd = os.path.realpath(os.path.join(cwd, os.path.expanduser(toks[1])))
             continue
         kind = verifier(toks, root)
         if not kind:
             continue
+        before = [o for o, _ in segs[1:i + 1]]
         after = [o for o, _ in segs[i + 1:]]
-        if i + 1 < len(segs) and segs[i + 1][0] == "|" and not pipefail:
+        if "||" in before or (i + 1 < len(segs) and segs[i + 1][0] == "|" and not pipefail):
             trusted = False
         else:
             trusted = all(o == "&&" or (o == "|" and pipefail) for o in after)
         real = unwrap(toks)
         found.append({"kind": kind, "prog": os.path.basename(real[0]), "trusted": trusted,
-                      "pos": sorted(a for a in real[1:] if not a.startswith("-")),
-                      "argv": toks, "cwd": cwd, "simple": len(segs) == 1 or (len(segs) == 2 and cwd is not None)})
+                      "pos": sorted(a for a in real[1:] if not a.startswith("-")), "argv": toks, "cwd": cwd,
+                      "simple": len(segs) == 1 or (len(segs) == 2 and segs[0][1][:1] == ["cd"] and segs[1][0] == "&&")})
     return found
+
+
+NOT_A_CHECK = re.compile(r"deploy|publish|release|upload|push|install|migrat|seed|drop|reset|delete|remove|clean|prod")
+
+
+def rememberable(argv):
+    """Only plain check commands may be re-run automatically: no env prefixes, deploys or extra make targets."""
+    if not argv or re.match(r"^[A-Za-z_]\w*=", argv[0]):
+        return False
+    toks = unwrap(argv)
+    if not toks:
+        return False
+    prog, pos = os.path.basename(toks[0]), [a for a in toks[1:] if not a.startswith("-")]
+    if any(NOT_A_CHECK.search(a.lower()) for a in pos):
+        return False
+    if prog in ("make", "gmake"):
+        return bool(pos) and all(a in ("test", "check", "tests") for a in pos)
+    if prog in ("npm", "pnpm", "yarn", "bun"):
+        return (pos in (["test"], ["t"]) or (pos[:1] == ["run"] and len(pos) == 2)
+                or (prog != "npm" and len(pos) == 1))
+    if prog in ("mvn", "mvnw", "gradle", "gradlew"):
+        return all(a in ("test", "check", "verify", "build", "assemble", "compile", "package") for a in pos)
+    return True
 
 
 def is_code(path):
@@ -673,73 +739,101 @@ def git_danger(args):
     return None
 
 
-def strip_git_globals(args):
-    out = list(args)
-    while out and out[0].startswith("-"):
-        opt = out.pop(0)
-        if opt in ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path") and out:
-            out.pop(0)
-    return out
-
-
-def rm_verdict(toks, root):
-    """Return ('deny'|'ask'|None, english, korean, targets) for one rm-like command."""
+def rm_verdict(toks, root, cwd=None):
+    """Return ('deny'|'ask'|None, english, korean, resolved targets) for one rm-like command."""
     home = os.path.realpath(str(Path.home()))
+    cwd = cwd or str(root)
     flags = "".join(x.lstrip("-") for x in toks[1:] if x.startswith("-") and x != "--")
     recursive = "r" in flags.lower() or "recursive" in flags
     targets = [x for x in toks[1:] if not x.startswith("-")]
     if not targets:
-        return "ask", "deletes the files listed by the previous command", "앞 명령이 찾은 파일들을 지워요", []
-    unsafe = []
+        return "ask", "deletes the files listed by the previous command", "앞 명령이 찾은 파일들을 지워요", [cwd]
+    unsafe, paths = [], []
     for target in targets:
         expanded = os.path.expanduser(target.replace("${HOME}", "~").replace("$HOME", "~"))
-        resolved = os.path.realpath(os.path.join(root, expanded))
+        resolved = os.path.realpath(os.path.join(cwd, expanded))
         base = os.path.basename(expanded.rstrip("/"))
-        scope = os.path.realpath(os.path.join(root, os.path.dirname(expanded) or ".")) if base == "*" else resolved
+        scope = os.path.realpath(os.path.join(cwd, os.path.dirname(expanded) or ".")) if base == "*" else resolved
         if (recursive or base == "*") and (scope in ("/", home) or inside(root, scope)):
-            return "deny", f"deletes everything in {target}", f"{target} 안의 모든 것을 지워요", []
+            return "deny", f"deletes everything in {target}", f"{target} 안의 모든 것을 지워요", [scope]
         if not inside(resolved, root) and any(inside(resolved, tr) and resolved != tr for tr in TEMP_ROOTS):
             continue
         if os.path.basename(resolved) in REGENERABLE and inside(resolved, root):
             continue
         unsafe.append(target)
+        paths.append(scope if base == "*" else resolved)
     if recursive and unsafe:
         return "ask", f"permanently deletes {', '.join(unsafe[:3])} and everything inside", \
-            f"{', '.join(unsafe[:3])} 폴더와 그 안의 모든 것을 영구히 지워요", unsafe
+            f"{', '.join(unsafe[:3])} 폴더와 그 안의 모든 것을 영구히 지워요", paths
     tests = [x for x in targets if TEST_PATH.search(x)]
     if tests:
-        return "ask", f"deletes test file(s) {', '.join(tests[:3])}", f"테스트 파일 {', '.join(tests[:3])}을(를) 지워요", tests
+        return "ask", f"deletes test file(s) {', '.join(tests[:3])}", f"테스트 파일 {', '.join(tests[:3])}을(를) 지워요", \
+            [os.path.realpath(os.path.join(cwd, x)) for x in tests]
     if any("*" in x for x in unsafe):
         return "ask", f"deletes every file matching {', '.join(unsafe[:3])}", \
-            f"{', '.join(unsafe[:3])}에 맞는 파일을 전부 지워요", unsafe
+            f"{', '.join(unsafe[:3])}에 맞는 파일을 전부 지워요", paths
     return None, "", "", []
 
 
-def danger(cmd, root):
-    """Return (verdict, english, korean, backup_helps, targets) for the riskiest part of a command."""
-    for _, raw in segments(cmd):
+def danger(cmd, root, base=None, depth=0):
+    """Return (verdict, english, korean, backup_helps, targets) for the riskiest part of a whole command."""
+    rank = {None: 0, "ask": 1, "deny": 2}
+    worst, helps_all, targets = (None, "", ""), True, []
+    cwd = os.path.realpath(str(base or root))
+    segs = segments(cmd)
+    for i, (_, raw) in enumerate(segs):
         toks = unwrap(raw)
         if not toks:
             continue
-        prog = os.path.basename(toks[0])
+        prog, hit = os.path.basename(toks[0]), None
+        nxt = unwrap(segs[i + 1][1]) if i + 1 < len(segs) and segs[i + 1][0] == "|" and segs[i + 1][1] else []
+        if prog == "cd" and len(toks) > 1:
+            cwd = os.path.realpath(os.path.join(cwd, os.path.expanduser(toks[1])))
+            continue
         if prog in RUNNERS and len(toks) > 1 and os.path.basename(toks[1]) == "manage.py":
             prog, toks = "manage.py", toks[1:]
-        if prog in ("rm", "rmdir", "unlink", "shred", "srm"):
-            verdict, en, ko, targets = rm_verdict(toks, root)
-            if verdict:
-                return verdict, en, ko, True, targets
+        inline = None
+        if prog in ("bash", "sh", "zsh", "dash") and "-c" in toks[:-1]:
+            inline = toks[toks.index("-c") + 1]
+        elif prog == "eval":
+            inline = " ".join(toks[1:])
+        if inline is not None and depth < 3:
+            v, en, ko, helps, tg = danger(inline, root, cwd, depth + 1)
+            hit = (v, en, ko, helps, tg) if v else None
+        elif prog in ("rm", "rmdir", "unlink", "shred", "srm"):
+            v, en, ko, tg = rm_verdict(toks, root, cwd)
+            hit = (v, en, ko, True, tg) if v else None
         elif prog == "git":
-            key = git_danger(strip_git_globals(toks[1:]))
+            args, git_cwd = list(toks[1:]), cwd
+            while args and args[0].startswith("-"):
+                opt = args.pop(0)
+                if opt in ("-C", "--work-tree") and args:
+                    git_cwd = os.path.realpath(os.path.join(git_cwd, os.path.expanduser(args.pop(0))))
+                elif opt.startswith("--work-tree="):
+                    git_cwd = os.path.realpath(os.path.join(git_cwd, opt.split("=", 1)[1]))
+                elif opt in ("-c", "--git-dir", "--namespace", "--exec-path") and args:
+                    args.pop(0)
+            key = git_danger(args)
             if key:
                 en, ko, helps = GIT_EFFECTS[key]
-                if key == "clean" and any("x" in a.lower() for a in toks if a.startswith("-") and not a.startswith("--")):
+                if key == "clean" and any("x" in a.lower() for a in args if a.startswith("-") and not a.startswith("--")):
                     helps = False  # -x also deletes ignored files, which are not in the backup
-                return "ask", en, ko, helps, []
-        words = " ".join(toks[1:])
-        for progs, pattern, en, ko, helps in DANGER:
-            if prog in progs:
-                if not pattern or re.search(pattern, words):
-                    return "ask", en, ko, helps, []
+                hit = ("ask", en, ko, helps and inside(git_cwd, root), [])
+        else:
+            words = " ".join(toks[1:])
+            for progs, pattern, en, ko, helps in DANGER:
+                if prog in ("echo", "cat", "printf") and not (nxt and os.path.basename(nxt[0]) in DB_CLIENTS):
+                    break  # printing SQL is harmless unless it is piped into a database
+                if prog in progs and (not pattern or re.search(pattern, words)):
+                    hit = ("ask", en, ko, helps, [])
+                    break
+        if hit:
+            helps_all = helps_all and hit[3]
+            targets += hit[4]
+            if rank[hit[0]] > rank[worst[0]]:
+                worst = hit[:3]
+    if worst[0]:
+        return worst[0], worst[1], worst[2], helps_all, targets
     return None, "", "", False, []
 
 
@@ -757,6 +851,8 @@ SECRETS = [
 
 
 def redact(text):
+    text = re.sub(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?(-----END [A-Z0-9 ]*PRIVATE KEY-----|\Z)",
+                  "[redacted private key]", text, flags=re.S)
     for pattern, label in SECRETS:
         text = re.sub(pattern, f"[redacted {label}]", text)
     return text
@@ -777,6 +873,10 @@ PRIVATE_FLAGS = {"--registry", "-i", "--index-url", "--extra-index-url", "-f", "
                  "--default-index", "--source", "--git", "--path"}
 
 
+PRIVATE_ENV = re.compile(r"^(PIP_(EXTRA_)?INDEX_URL|PIP_FIND_LINKS|UV_(EXTRA_)?INDEX(_URL)?|UV_DEFAULT_INDEX"
+                         r"|NPM_CONFIG_REGISTRY|npm_config_registry|YARN_NPM_REGISTRY_SERVER|CARGO_REGISTRIES_\w+)=")
+
+
 def install_targets(cmd):
     """Yield (ecosystem, package, private) for package install commands."""
     for _, raw in segments(cmd):
@@ -795,7 +895,7 @@ def install_targets(cmd):
             eco, rest = "crates", rest[1:]
         if not eco:
             continue
-        private = any(a.split("=")[0] in PRIVATE_FLAGS for a in rest)
+        private = any(a.split("=")[0] in PRIVATE_FLAGS for a in rest) or any(PRIVATE_ENV.match(a) for a in raw)
         skip = False
         for arg in rest:
             if skip:
@@ -895,6 +995,7 @@ def on_prompt(v):
     turns = st.get("turns", {})
     turns[v.pid or v.sid] = {"snap": snap, "prompt": prompt[:600], "t": time.time()}
     st["turns"] = dict(list(turns.items())[-20:])
+    st["current_snap"] = snap
     st["codex_rounds"] = 0
     v.save("state.json", st)
     v.log(ev="turn")
@@ -960,26 +1061,14 @@ def on_pre_tool(v):
             return ask(t("tests_weak", lang, detail=detail, path=rel))
 
 
-def backed_up(v, targets):
-    """True when every target path is inside the snapshot scope (not ignored, not too big)."""
-    for target in targets:
-        path = os.path.realpath(os.path.join(v.root, os.path.expanduser(target)))
-        if not inside(path, v.root):
-            return False
-        rel = os.path.relpath(path, v.root)
-        if v.git("check-ignore", "-q", "--no-index", rel)[0] == 0:
-            return False
-    return True
-
-
 def pre_bash(v, cmd, lang):
-    verdict, en, ko, helps, targets = danger(cmd, v.root)
+    verdict, en, ko, helps, targets = danger(cmd, v.root, v.data.get("cwd"))
     if verdict == "deny":
         return deny(f"vibe-claude blocked a catastrophic command ({en}). Do not try to work around this. "
                     "Explain to the user in plain words what you wanted to do and find a narrower command.")
     if verdict:
-        snap = v.snapshot("guard", cmd[:100]) if helps else None
-        saved = bool(snap) and backed_up(v, targets)
+        snap = v.snapshot("guard", cmd[:100])
+        saved = helps and bool(snap) and not v.unsaved_under(targets)
         what = ko if lang == "ko" else en
         tail = t("ask_files" if saved else "ask_nofiles", lang)
         return ask(f"{t('ask_head', lang, what=what)}\n{tail} {t('ask_tail', lang)}\n$ {cmd[:300]}")
@@ -1043,10 +1132,8 @@ def check_syntax(path, root):
 
 def tool_missing(prog, out, code):
     """The checker itself is not installed (no evidence either way), as opposed to the project failing."""
-    if code == 127:
-        return True
     p = re.escape(prog)
-    return bool(re.search(rf"No module named '?{p}'?\s*$|\b{p}: (command )?not found|command not found: {p}\b"
+    return bool(re.search(rf"No module named '?{p}'?\s*$|(^|[\s:]){p}: (command )?not found|command not found: {p}\b"
                           rf"|Missing script: \"?{p}|npm (ERR!|error) Missing script", out[-2000:], re.M))
 
 
@@ -1067,23 +1154,21 @@ def on_post_tool(v, failed=False):
             code = int(m.group(1)) if m else 1
             if len(found) == 1 and tool_missing(found[0]["prog"], err, code):
                 return
-            last = found[-1]
-            v.log(ev="run", cmd=cmd[:500], kind=last["kind"], prog=last["prog"], pos=last["pos"], exit=code, ok=False)
+            c = found[-1]
+            v.log(ev="run", cmd=cmd[:500], kind=c["kind"], prog=c["prog"], pos=c["pos"], cwd=c["cwd"], exit=code, ok=False)
             return
         if isinstance(resp, dict) and resp.get("interrupted"):
             return
         for c in found:
-            v.log(ev="run", cmd=cmd[:500], kind=c["kind"], prog=c["prog"], pos=c["pos"],
+            v.log(ev="run", cmd=cmd[:500], kind=c["kind"], prog=c["prog"], pos=c["pos"], cwd=c["cwd"],
                   exit=0 if c["trusted"] else None, ok=c["trusted"])
-            if c["trusted"] and c["simple"] and c["kind"] in ("test", "type", "lint", "build") and v.config["ratchet"]:
-                argv = c["argv"]
-                if not re.match(r"^[A-Za-z_]\w*=", argv[0]) and not any(re.search(r"[`$]", a) for a in argv):
-                    cwd = os.path.realpath(c["cwd"] or v.data.get("cwd") or str(v.root))
-                    if inside(cwd, v.root):
-                        green = [g for g in v.load("green.json", []) if g.get("argv") != argv or g.get("cwd") != cwd]
-                        green.append({"argv": argv, "cwd": cwd, "kind": c["kind"], "prog": c["prog"],
-                                      "pos": c["pos"], "t": time.time()})
-                        v.save("green.json", green[-5:])
+            argv = [a for a in c["argv"]]
+            if (c["trusted"] and c["simple"] and c["kind"] in ("test", "type", "lint", "build") and v.config["ratchet"]
+                    and rememberable(argv) and not any(re.search(r"[`$]", a) for a in argv) and inside(c["cwd"], v.root)):
+                green = [g for g in v.load("green.json", []) if g.get("argv") != argv or g.get("cwd") != c["cwd"]]
+                green.append({"argv": argv, "cwd": c["cwd"], "kind": c["kind"], "prog": c["prog"], "pos": c["pos"],
+                              "t": time.time()})
+                v.save("green.json", green[-5:])
         if any(c["trusted"] for c in found):
             v.snapshot("good", cmd[:100])
         return
@@ -1098,9 +1183,9 @@ def on_post_tool(v, failed=False):
 
 
 def supersedes(newer, older):
-    """A later run of the same check replaces an earlier one unless it is narrower (adds new targets)."""
+    """A later run of the same check in the same folder replaces an earlier one unless it is narrower."""
     return (newer.get("kind") == older.get("kind") and newer.get("prog") == older.get("prog")
-            and set(newer.get("pos", [])) <= set(older.get("pos", [])))
+            and newer.get("cwd") == older.get("cwd") and set(newer.get("pos", [])) <= set(older.get("pos", [])))
 
 
 def proof(v, snapshot=True):
@@ -1112,14 +1197,23 @@ def proof(v, snapshot=True):
     files = None
     if snapshot and info.get("snap"):
         now = v.snapshot("check", "end of request")
-        if now:
-            files = sorted(p for _, p in v.changed(info["snap"], now) if is_code(p))
+        diff = v.changed(info["snap"], now) if now else None
+        if diff is not None:
+            files = sorted(p for _, p in diff if is_code(p))
     if files is None:  # no snapshots: fall back to what the edit tools reported
         files = sorted(p for p in edits if is_code(p))
     if not files:
         return None
-    # Edits made with Write/Edit have exact times; changes made by shell commands only need a check in this request.
-    last_change = max([edits[p] for p in files if p in edits] or [info.get("t", 0)])
+    # When was the code last touched? Edit-tool times, or file times for changes made by shell commands
+    # (files written by a check finish before that check is logged, so they never count as "after" it).
+    times = [info.get("t", 0)]
+    for rel in files:
+        times.append(edits.get(rel, 0))
+        try:
+            times.append(min((v.root / rel).stat().st_mtime, time.time()))
+        except OSError:
+            pass
+    last_change = max(times)
     runs = sorted((e for e in turn if e.get("ev") == "run" and e["t"] >= last_change), key=lambda e: e["t"])
     passed, failed, unclear = [], [], []
     for r in runs:
@@ -1130,7 +1224,7 @@ def proof(v, snapshot=True):
         elif r.get("exit") is None:
             unclear.append(r)
         else:
-            passed = [p for p in passed if not supersedes(r, p)]
+            passed = [x for x in passed if not supersedes(r, x)]
             failed.append(r)
     return {"files": files, "passed": passed, "failed": failed, "unclear": unclear}
 
@@ -1141,22 +1235,30 @@ def short(cmd):
 
 
 def ratchet(v, p):
-    """Re-run remembered checks (single commands that passed before) that were not run since the last change."""
+    """Re-run remembered checks (single commands that passed before) that were not run since the last change.
+
+    Returns (cmd, output) for the first one that now fails. Checks that time out or cannot finish within the
+    budget are logged as unclear, so the receipt never claims more than was checked.
+    """
     budget = time.time() + 240
     for g in v.load("green.json", []):
         argv, cwd = g.get("argv"), g.get("cwd")
-        if not argv or not isinstance(argv, list) or time.time() > budget:
+        if not argv or not isinstance(argv, list) or not rememberable(argv):
             continue
         if any(supersedes(r, g) for r in p["passed"] + p["failed"]):
             continue
         if not cwd or not os.path.isdir(cwd) or not inside(cwd, v.root) or verifier(argv, v.root) != g.get("kind"):
             continue
+        cmd = shlex.join(argv)
+        entry = dict(ev="run", cmd=cmd, kind=g["kind"], prog=g.get("prog"), pos=g.get("pos", []), cwd=cwd, ratchet=True)
+        if time.time() > budget:
+            v.log(**entry, exit=None, ok=False)
+            continue
         rc, out, err = run(argv, cwd=cwd, timeout=max(10, min(120, budget - time.time())))
         if rc in (124, 127):
+            v.log(**entry, exit=None, ok=False)
             continue
-        cmd = shlex.join(argv)
-        v.log(ev="run", cmd=cmd, kind=g["kind"], prog=g.get("prog"), pos=g.get("pos", []), exit=rc, ok=rc == 0,
-              ratchet=True)
+        v.log(**entry, exit=rc, ok=rc == 0)
         if rc:
             return cmd, (out + err)[-1500:]
     return None
@@ -1180,9 +1282,10 @@ def on_stop(v):
     waiting = bool(d.get("background_tasks"))
     p = proof(v)
     if not p:
-        v.state_update(stop={"id": sid, "decision": "nochange"})
+        v.state_update(stop={"id": sid, "decision": "nochange", "t": time.time()})
         return
     reason = None
+    broken = ratchet(v, p) if p["passed"] and not p["failed"] and v.config["ratchet"] else None
     # Block once per stop sequence. After that, or while background work runs, end honestly with the receipt.
     if not d.get("stop_hook_active") and not waiting:
         if p["failed"]:
@@ -1199,18 +1302,16 @@ def on_stop(v):
                           "your last change. Run the tests, the build, or the program itself now and report the real "
                           "result." + (" This project has: " + "; ".join(hints) + "." if hints else "") +
                           " If no check is possible, tell the user plainly what is not verified.")
-        elif v.config["ratchet"]:
-            broken = ratchet(v, p)
-            if broken:
-                cmd, out = broken
-                reason = (f"Regression: `{cmd}` passed earlier in this project and fails now.\n{out}\nFix what broke "
-                          "it. If that check is obsolete, remove it with: python3 "
-                          f"\"{Path(__file__).resolve()}\" checks forget \"{cmd}\"")
+        elif broken:
+            cmd, out = broken
+            reason = (f"Regression: `{cmd}` passed earlier in this project and fails now.\n{out}\nFix what broke "
+                      "it. If that check is obsolete, remove it with: python3 "
+                      f"\"{Path(__file__).resolve()}\" checks forget \"{cmd}\"")
         if not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
             reason = ("Before finishing, tell the user in plain words how they can see the result themselves: a URL "
                       "to open, a command to run, or where to click. They cannot read the code.")
     if reason:
-        v.state_update(stop={"id": sid, "decision": "block"})
+        v.state_update(stop={"id": sid, "decision": "block", "t": time.time()})
         return emit({"decision": "block", "reason": reason})
     p = proof(v, snapshot=False) or p
     lang, n = v.lang, len(p["files"])
@@ -1219,10 +1320,14 @@ def on_stop(v):
         msg = t("receipt_fail", lang, n=n, cmd=short(p["failed"][-1]["cmd"]))
     elif p["passed"]:
         checks = ", ".join(dict.fromkeys(short(r["cmd"]) for r in p["passed"]))
-        msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
+        if p["unclear"]:
+            msg = t("receipt_partial", lang, n=n, checks=checks, cmd=short(p["unclear"][-1]["cmd"]), codex=codex)
+        else:
+            msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
     else:
         msg = t("receipt_none", lang, n=n, codex=codex)
-    v.state_update(stop={"id": sid, "decision": "allow" if p["passed"] and not p["failed"] else "unverified"})
+    verified = p["passed"] and not p["failed"] and not p["unclear"]
+    v.state_update(stop={"id": sid, "decision": "allow" if verified else "unverified", "t": time.time()})
     emit({"systemMessage": msg})
 
 
@@ -1256,7 +1361,7 @@ def on_codex(v):
     wait = float(os.environ.get("VIBE_STOP_WAIT", "300"))
     while time.time() - started < wait:  # wait for this exact Stop's verdict from the synchronous hook
         st = v.load("state.json", {}).get("stop", {})
-        if st.get("id") == sid:
+        if st.get("id") == sid and st.get("t", 0) >= started - 3:  # this Stop, not an identical earlier one
             break
         time.sleep(0.5)
     else:
@@ -1270,9 +1375,11 @@ def on_codex(v):
     before, after = turn.get("snap"), v.snapshot("review", "after change")
     if not before or not after:
         return 0
-    excludes = [":(exclude,glob)**/.env", ":(exclude,glob)**/.env.*", ":(exclude,glob)**/*.pem",
-                ":(exclude,glob)**/*.key", ":(exclude,glob)**/*.p12", ":(exclude,glob)**/id_rsa*"]
-    _, diff, _ = v.git("diff", "--no-color", before, after, "--", ".", *excludes)
+    names = v.changed(before, after) or []
+    paths = [rel for _, rel in names if not SECRET_FILES.search(rel)]
+    if not paths:
+        return 0
+    _, diff, _ = v.git("diff", "--no-color", before, after, "--", *[":(literal)" + rel for rel in paths[:400]])
     if not diff.strip():
         return 0
     digest = hashlib.sha1(diff.encode()).hexdigest()
@@ -1329,10 +1436,12 @@ def cli(argv):
                 print("No snapshots yet." if v.snapshots_on() else "Snapshots are off or unavailable here.")
                 return 0
             print("id          when          kind                   label  [difference from now]")
+            mine = v.load("state.json", {}).get("current_snap")
             for s in snaps:
                 _, stat, _ = v.git("diff", "--shortstat", s["sha"], current)
+                note = " (start of the current request)" if s["sha"] == mine else ""
                 print(f"{s['sha'][:10]}  {ago(s['t']):>12}  {KINDS.get(s['kind'], s['kind']):<21}  "
-                      f"{s['label'][:70]!r}  [{stat.strip() or 'same as now'}]")
+                      f"{s['label'][:70]!r}  [{stat.strip() or 'same as now'}]{note}")
             return 0
         if sub in ("show", "restore") and len(argv) > 2:
             target = v.resolve(argv[2])

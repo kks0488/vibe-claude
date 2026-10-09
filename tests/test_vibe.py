@@ -210,6 +210,32 @@ class ProofTests(Project):
         self.ran("npm test", ok=False, stdout="Error: Cannot find module './missing-app-file'")
         self.assertIn("failed", self.stop()["reason"])
 
+    def test_a_check_that_may_not_have_run_is_unclear(self):
+        self.edit("app.py")
+        self.ran("true || pytest")
+        self.assertIn("hid its real result", self.stop()["reason"])
+
+    def test_success_in_one_folder_does_not_clear_a_failure_in_another(self):
+        self.edit("api/app.js")
+        self.ran("cd api && npm test", ok=False)
+        self.ran("cd web && npm test")
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_a_missing_tool_inside_the_test_script_is_a_failure(self):
+        self.edit("app.js")
+        self.ran("npm test", ok=False, stdout="sh: vitest: command not found")
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_shell_change_after_the_check_needs_a_new_check(self):
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="change", prompt_id="m1")
+        self.pid = "m1"
+        self.write("app.py", "x = 2\n")
+        self.ran("python3 app.py")
+        time.sleep(1.1)
+        self.write("app.py", "x = 3\n")  # changed by a later shell command
+        self.assertIn("nothing was run", self.stop()["reason"])
+
     def test_background_work_ends_honestly_without_blocking(self):
         self.edit("app.py")
         out = self.stop(background=[{"id": "dev-server"}])
@@ -278,6 +304,12 @@ class ProofTests(Project):
         self.ran("FOO=1 bash tests/check.sh")
         self.assertEqual(self.cli("checks").stdout.strip(), "No remembered checks.")
 
+    def test_ratchet_never_remembers_deploys_or_extra_targets(self):
+        for cmd in ("make test deploy", "npm run deploy:test", "gradle test publish"):
+            self.ran(cmd)
+        self.ran("make test")
+        self.assertEqual(self.cli("checks").stdout.strip(), "make test")
+
     def test_project_folder_stays_clean(self):
         self.edit("app.py")
         self.ran("pytest")
@@ -311,8 +343,25 @@ class GuardTests(Project):
                     "rm -rf /tmp-backups", "rm -rf src/*", "python manage.py flush", "echo 'DROP TABLE x;' | psql"):
             self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
 
+    def test_the_riskiest_part_of_a_command_wins(self):
+        for cmd in ("rm -rf docs && rm -rf ~", "bash -c 'rm -rf /'", "eval rm -rf ~", "cd .. && rm -rf *"):
+            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
+        out = self.pre("Bash", command="cd ../other-project && rm -rf dist")
+        self.assertEqual(self.decision(out), "ask")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+        out = self.pre("Bash", command="git -C ../other reset --hard")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_ignored_files_inside_a_folder_void_the_backup_promise(self):
+        self.write(".gitignore", "*.secret\n")
+        self.write("photos/a.jpg", "1")
+        self.write("photos/key.secret", "2")
+        out = self.pre("Bash", command="rm -rf photos")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+
     def test_searching_or_dry_runs_are_not_dangerous(self):
-        for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", "rm -rf /tmp/build-cache"):
+        for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", "rm -rf /tmp/build-cache",
+                    "echo 'DROP TABLE users;'"):
             self.assertIsNone(self.pre("Bash", command=cmd), cmd)
 
     def test_backup_promise_is_only_made_when_true(self):
@@ -366,6 +415,7 @@ class GuardTests(Project):
         self.assertEqual([(e, n) for e, n, _ in found], [("npm", "@types/node"), ("npm", "react"), ("pypi", "flask"),
                                                          ("crates", "serde"), ("pypi", "requests"), ("pypi", "httpx")])
         self.assertTrue(all(p for _, _, p in vibe.install_targets("pip install --index-url https://corp/simple corp-lib")))
+        self.assertTrue(all(p for _, _, p in vibe.install_targets("PIP_INDEX_URL=https://corp/simple pip install lib")))
 
     def test_private_registry_names_are_never_sent_out(self):
         self.write(".npmrc", "@corp:registry=https://npm.corp.example\n")
@@ -440,6 +490,55 @@ class SnapshotTests(Project):
         self.pre("Bash", command="rm -rf photos")
         self.assertIn("before risky command", self.cli("undo", "list").stdout)
 
+    def test_restore_refuses_to_overwrite_an_ignored_file(self):
+        self.write("config.json", "{}")
+        self.hook("prompt", prompt="before")
+        (self.dir / "config.json").unlink()
+        self.hook("prompt", prompt="middle", prompt_id="p8")
+        self.write(".gitignore", "config.json\n")
+        self.write("config.json", '{"mine": true}')
+        r = self.cli("undo", "restore", self.snap_id("before request", "'before'"))
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual((self.dir / "config.json").read_text(), '{"mine": true}')
+
+    def test_list_marks_the_current_request(self):
+        self.write("a.py", "1")
+        self.hook("prompt", prompt="first")
+        self.write("a.py", "2")
+        self.hook("prompt", prompt="undo please", prompt_id="p7")
+        line = next(l for l in self.cli("undo", "list").stdout.splitlines() if "undo please" in l)
+        self.assertIn("start of the current request", line)
+
+    def in_process(self):
+        old = os.environ.get("VIBE_HOME")
+        os.environ["VIBE_HOME"] = str(self.home)
+        self.addCleanup(lambda: os.environ.pop("VIBE_HOME") if old is None else os.environ.update(VIBE_HOME=old))
+        return vibe.Vibe({"cwd": str(self.dir)})
+
+    def test_pruning_keeps_recent_ids_valid(self):
+        v = self.in_process()
+        keep, vibe.KEEP_SNAPSHOTS = vibe.KEEP_SNAPSHOTS, 2
+        self.addCleanup(setattr, vibe, "KEEP_SNAPSHOTS", keep)
+        ids = []
+        for i in range(25):
+            self.write("a.py", str(i))
+            ids.append(v.snapshot("turn", str(i)))
+        v.prune()
+        self.assertEqual(len(v.snapshots(100)), 2)
+        self.assertEqual(v.resolve(ids[-1][:10]), ids[-1])
+        self.assertIsNone(v.resolve(ids[0][:10]))
+
+    def test_big_files_stay_out_of_every_snapshot(self):
+        v = self.in_process()
+        big, vibe.MAX_FILE = vibe.MAX_FILE, 100
+        self.addCleanup(setattr, vibe, "MAX_FILE", big)
+        self.write("video.bin", "x" * 500)
+        self.write("a.py", "1")
+        first = v.snapshot("turn", "1")
+        self.write("a.py", "2")
+        second = v.snapshot("turn", "2")
+        self.assertNotIn("video.bin", v.files_in(first) | v.files_in(second))
+
     def test_unknown_ids_are_rejected(self):
         self.hook("prompt", prompt="hi")
         self.assertEqual(self.cli("undo", "restore", "deadbeef00").returncode, 1)
@@ -465,7 +564,7 @@ class SnapshotTests(Project):
         (self.dir / ".gitignore").write_text("*.bin\n")
         r = self.cli("undo", "restore", self.snap_id("before request", "'before'"))
         self.assertEqual(r.returncode, 1)
-        self.assertIn("changed shape", r.stdout)
+        self.assertIn("no backup", r.stdout)
         self.assertTrue((self.dir / "notes/big.bin").exists())
 
     def test_home_folder_is_never_snapshotted(self):
@@ -519,6 +618,20 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.assertNotIn(key, prompt)
         self.assertNotIn(".env", prompt)
         self.assertIn("[redacted", prompt)
+
+    def test_private_key_bodies_never_reach_the_reviewer(self):
+        self.fake_codex("LGTM")
+        body = "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2g"
+        pem = f"-----BEGIN OPENSSH PRIVATE KEY-----\n{body}\n-----END OPENSSH PRIVATE KEY-----\n"
+        self.hook("prompt", prompt="Add deploy key")
+        self.write("deploy/id_ed25519", pem)
+        self.write("deploy/notes.py", "KEY = " + repr(pem) + "\n")
+        self.ran("python3 deploy/notes.py")
+        self.stop()
+        self.codex()
+        prompt = (self.bin / "prompt").read_text()
+        self.assertNotIn(body, prompt)
+        self.assertNotIn("id_ed25519", prompt)
 
     def test_a_failed_review_is_retried(self):
         script = self.bin / "codex"

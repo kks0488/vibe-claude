@@ -13,7 +13,7 @@ The user wants an earlier version of their files back. They may not read code, s
    Each line is `<id> <when> <kind> '<label>' [how it differs from now]`. Always refer to a moment by its id (first column), never by its position, because new moments are added while you talk. Kinds: "before request" (the label is what the user asked for), "before risky command", "checks passed" (a moment when tests or the build passed), "before an undo".
 
 2. Pick the moment that matches what the user described: $ARGUMENTS
-   If nothing was described, suggest the newest "before request" entry, which undoes the latest request. If unsure, show at most 3 options in plain words, for example "3분 전, '로그인 고쳐줘' 요청 직전 (파일 4개가 달라요)", and ask which one.
+   If nothing was described, suggest the newest "before request" entry that is not marked "(start of the current request)" and does not say "same as now": that undoes the latest finished request. If unsure, show at most 3 options in plain words, for example "3분 전, '로그인 고쳐줘' 요청 직전 (파일 4개가 달라요)", and ask which one.
 
 3. Optionally see which files would change: `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" undo show <id>`
 
