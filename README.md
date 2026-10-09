@@ -19,7 +19,7 @@ If you can't read code, you can't tell when the AI says "done" but nothing works
 | **Regression ratchet** | Same | Checks that passed before in this project run again. If one breaks, Claude has to fix it before finishing. |
 | **Second opinion** | After a verified change, if [Codex CLI](https://github.com/openai/codex) is installed and logged in | A different model (OpenAI Codex) reviews the change in the background, read-only. If it finds a real problem, Claude is woken up to check and fix it. Without Codex this step is skipped. |
 | **Receipt** | Every finished change | One line only you see, written from the log, not by the model: `vibe ✓ 2 files changed · checked: npm test · undo: /vibe-claude:undo` |
-| **Guard** | Before a risky command | `rm -rf`, `git reset --hard`, force push, `DROP TABLE`, database resets and similar commands stop and ask you, in plain words, even in bypass mode. Wiping your home folder or the whole disk is refused. |
+| **Guard** | Before a risky command | A backup is taken first. If undo can bring everything back, the command just runs. If it can't (git-ignored or large files, other folders, force push, `DROP TABLE`, database resets, cloud deletes), it stops and asks you in plain words, even in bypass mode. Wiping your home folder or the whole disk is refused. Tell Claude a folder is disposable (say, generated screenshots) and it stops asking about it. |
 | **Test guard** | Before a test file is edited | Removing checks, adding `skip`, or adding always-true checks asks you first. This is how AI "passes" tests without fixing anything. |
 | **Package check** | Before `npm`/`pip`/`cargo` installs | Packages that don't exist are blocked (AI often invents names, and attackers register them). Packages less than 14 days old ask first. |
 | **Secret check** | Before a file is written | Real-looking API keys going into code are blocked. `.env` files are allowed. |
@@ -46,7 +46,7 @@ For local development: `claude --plugin-dir ./vibe-claude`.
 Optional `.vibe/config.json` in your project (or `config.json` in the project's folder under `~/.vibe-claude/projects/`):
 
 ```json
-{ "codex": "auto", "ratchet": true, "snapshots": true, "packages": true, "lang": null }
+{ "codex": "auto", "ratchet": true, "snapshots": true, "packages": true, "lang": null, "safe_to_delete": [] }
 ```
 
 `"codex": "off"` turns off the second opinion. `lang` is `"en"` or `"ko"`; by default it follows the language you write in.
@@ -66,7 +66,7 @@ How it got here, from a 13-agent framework to this: [docs/HISTORY.md](docs/HISTO
 - **증명**: Claude가 코드를 고친 뒤에는, 마지막 수정 이후 테스트나 실행이 실제로 통과해야 끝낼 수 있어요. "다 됐어요"라는 말만으로는 끝낼 수 없어요.
 - **두 번째 의견**: Codex가 설치돼 있으면 다른 모델이 변경을 검토하고, 문제가 있으면 Claude가 다시 고쳐요.
 - **영수증**: 끝날 때마다 무엇이 바뀌었고 무엇으로 확인했는지 한 줄로 보여 줘요.
-- **확인 질문**: 파일 삭제나 데이터베이스 초기화처럼 되돌리기 어려운 명령은 쉬운 말로 먼저 물어봐요.
+- **확인 질문**: 위험한 명령 전에 먼저 백업해요. 백업으로 되돌릴 수 있으면 그냥 진행하고, 되돌릴 수 없을 때(데이터베이스 초기화, 백업에 없는 파일 삭제 등)만 쉬운 말로 물어봐요.
 - **되돌리기**: 요청할 때마다 파일을 자동으로 백업해요. `/vibe-claude:undo`로 이전 상태로 돌아갈 수 있어요.
 
 ## License

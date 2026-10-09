@@ -369,10 +369,25 @@ class ProofTests(Project):
 
 
 class GuardTests(Project):
-    def test_recursive_delete_asks_in_plain_words(self):
+    def test_unrecoverable_delete_asks_in_plain_words(self):
+        self.write(".gitignore", "*.raw\n")
+        self.write("photos/a.raw", "1")  # ignored, so the backup cannot bring it back
         out = self.pre("Bash", command="rm -rf photos")
         self.assertEqual(self.decision(out), "ask")
         self.assertIn("photos", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_folders_marked_disposable_stop_asking(self):
+        self.write(".gitignore", "qa/\n")
+        self.write("qa/shots/a.png", "1")
+        self.assertEqual(self.decision(self.pre("Bash", command="rm -rf qa/shots")), "ask")
+        self.assertEqual(self.cli("allow-delete", "qa").returncode, 0)
+        self.assertIsNone(self.pre("Bash", command="rm -rf qa/shots"))
+        self.assertEqual(self.cli("allow-delete", "..").returncode, 1)
+
+    def test_recoverable_delete_just_takes_a_backup(self):
+        self.write("photos/a.jpg", "1")
+        self.assertIsNone(self.pre("Bash", command="rm -rf photos"))
+        self.assertIn("before risky command", self.cli("undo", "list").stdout)
 
     def test_regenerable_folders_are_allowed(self):
         self.assertIsNone(self.pre("Bash", command="rm -rf node_modules dist .next"))
@@ -384,14 +399,15 @@ class GuardTests(Project):
     def test_dangerous_commands_ask(self):
         for cmd in ("git reset --hard HEAD~1", "git push -f origin main", "git clean -fdx",
                     "psql -c 'DROP TABLE users'", "supabase db reset", "find . -name '*.py' -delete",
+                    "rm -rf ../outside-folder",
                     "git checkout -- .", "sqlite3 app.db 'DELETE FROM users;'"):
             self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
 
     def test_wrappers_and_git_options_do_not_bypass_the_guard(self):
         for cmd in ("env rm -rf /", "sudo -n rm -rf /", "env FOO=1 rm -rf ~", "rm -rf ..", "rm -rf ./*"):
             self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
-        for cmd in ("git -C repo reset --hard", "git -c core.x=1 push --force", "rm -rf ../other-project/dist",
-                    "rm -rf /tmp-backups", "rm -rf src/*", "python manage.py flush", "echo 'DROP TABLE x;' | psql"):
+        for cmd in ("git -c core.x=1 push --force", "rm -rf ../other-project/dist",
+                    "rm -rf /tmp-backups", "python manage.py flush", "echo 'DROP TABLE x;' | psql"):
             self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
 
     def test_the_riskiest_part_of_a_command_wins(self):
@@ -415,8 +431,7 @@ class GuardTests(Project):
         git("commit", "-qm", "two")
         out = self.pre("Bash", command="git reset --hard HEAD~1")
         self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
-        out = self.pre("Bash", command="git reset --hard")  # clean tree: nothing to lose, backup covers it
-        self.assertIn("backup of your files was saved", out["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIsNone(self.pre("Bash", command="git reset --hard"))  # clean tree: nothing to lose
 
     def test_ignored_files_inside_a_folder_void_the_backup_promise(self):
         self.write(".gitignore", "*.secret\n")
@@ -425,6 +440,13 @@ class GuardTests(Project):
         out = self.pre("Bash", command="rm -rf photos")
         self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
 
+    def test_heredoc_text_and_known_variables_are_understood(self):
+        cmd = "cat > notes.md <<'EOF'\nrm -rf ~\nDROP TABLE users;\nEOF\necho done"
+        self.assertIsNone(self.pre("Bash", command=cmd))
+        self.assertIsNone(self.pre("Bash", command="S=/tmp/shots && rm -rf $S/cut_*.png ${S}/old"))
+        self.assertEqual(self.decision(self.pre("Bash", command="D=$HOME && rm -rf $D")), "deny")
+        self.assertIsNone(self.pre("Bash", command="rm -rf ../elsewhere/src/__pycache__"))
+
     def test_searching_or_dry_runs_are_not_dangerous(self):
         for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", "rm -rf /tmp/build-cache",
                     "echo 'DROP TABLE users;'"):
@@ -432,8 +454,7 @@ class GuardTests(Project):
 
     def test_backup_promise_is_only_made_when_true(self):
         self.write("photos/a.txt", "1")
-        out = self.pre("Bash", command="rm -rf photos")
-        self.assertIn("backup of your files was saved", out["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIsNone(self.pre("Bash", command="rm -rf photos"))  # fully backed up: no question needed
         out = self.pre("Bash", command="git clean -fdx")
         self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
         out = self.pre("Bash", command="rm -rf ../elsewhere")
@@ -553,7 +574,7 @@ class SnapshotTests(Project):
 
     def test_risky_command_takes_a_snapshot_first(self):
         self.write("photos/a.txt", "1")
-        self.pre("Bash", command="rm -rf photos")
+        self.pre("Bash", command="rm -rf photos")  # recoverable, so allowed after the snapshot
         self.assertIn("before risky command", self.cli("undo", "list").stdout)
 
     def test_restore_refuses_to_overwrite_an_ignored_file(self):

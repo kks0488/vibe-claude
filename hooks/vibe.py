@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 
 VERSION = "6.0.0"
-DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": True, "lang": None}
+DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": True, "lang": None, "safe_to_delete": []}
 DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock",
            "log", "snap", "map"}
 MAX_FILE = 5_000_000      # files bigger than this are not snapshotted
@@ -404,9 +404,26 @@ WRAPPER_ARGS = {"sudo": {"-u", "-g", "-h", "-p", "-C", "-D", "-r", "-t", "-U"}, 
                 "nice": {"-n"}, "xargs": {"-I", "-n", "-P", "-L", "-d", "-s", "-E"}, "timeout": {"-s", "-k"}}
 
 
+HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][\w-]*)\2")
+
+
+def strip_heredocs(cmd):
+    """Drop here-document bodies (`<<EOF ... EOF`): they are text fed to a program, not commands."""
+    out, waiting = [], []
+    for line in cmd.split("\n"):
+        if waiting:
+            dash, word = waiting[0]
+            if (line.lstrip("\t") if dash else line) == word:
+                waiting.pop(0)
+            continue
+        out.append(line)
+        waiting = [(m.group(1), m.group(3)) for m in HEREDOC.finditer(line)]
+    return "\n".join(out)
+
+
 def segments(cmd):
-    """Split a shell command into [(operator_before, tokens)], dropping redirections."""
-    lex = shlex.shlex(cmd.replace("\n", " ; "), posix=True, punctuation_chars=";&|<>()")
+    """Split a shell command into [(operator_before, tokens)], dropping redirections and here-documents."""
+    lex = shlex.shlex(strip_heredocs(cmd).replace("\n", " ; "), posix=True, punctuation_chars=";&|<>()")
     lex.whitespace_split = True
     try:
         toks = list(lex)
@@ -718,6 +735,7 @@ GIT_EFFECTS = {
     "stash": ("deletes saved-aside work", "따로 보관해 둔 작업을 지워요", False),
     "rewrite": ("rewrites the whole project history", "프로젝트 기록 전체를 다시 써요", False),
 }
+CACHES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules", ".parcel-cache", ".turbo"}
 REGENERABLE = {"node_modules", "dist", "build", "out", ".next", ".nuxt", ".turbo", "coverage", "__pycache__",
                ".pytest_cache", ".mypy_cache", ".ruff_cache", "target", ".cache", ".parcel-cache", ".vite"}
 TEMP_ROOTS = [os.path.realpath(p) for p in (os.environ.get("VIBE_TEMP_ROOTS", "").split(os.pathsep) if
@@ -749,6 +767,14 @@ def git_danger(args):
     return None
 
 
+def committed_test(path, root):
+    """A project test someone relies on: inside the project and, in a git project, committed (not a scratch file)."""
+    if not inside(path, root):
+        return False
+    rc, _, _ = run(["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"], timeout=10)
+    return rc != 0 or run(["git", "-C", str(root), "ls-files", "--error-unmatch", "--", path], timeout=10)[0] == 0
+
+
 def rm_verdict(toks, root, cwd=None):
     """Return ('deny'|'ask'|None, english, korean, resolved targets) for one rm-like command."""
     home = os.path.realpath(str(Path.home()))
@@ -768,14 +794,15 @@ def rm_verdict(toks, root, cwd=None):
             return "deny", f"deletes everything in {target}", f"{target} 안의 모든 것을 지워요", [scope]
         if not inside(resolved, root) and any(inside(resolved, tr) and resolved != tr for tr in TEMP_ROOTS):
             continue
-        if os.path.basename(resolved) in REGENERABLE and inside(resolved, root):
+        name = os.path.basename(resolved)
+        if name in CACHES or (name in REGENERABLE and inside(resolved, root)):
             continue
         unsafe.append(target)
         paths.append(scope if base == "*" else resolved)
     if recursive and unsafe:
         return "ask", f"permanently deletes {', '.join(unsafe[:3])} and everything inside", \
             f"{', '.join(unsafe[:3])} 폴더와 그 안의 모든 것을 영구히 지워요", paths
-    tests = [x for x in targets if TEST_PATH.search(x)]
+    tests = [x for x in targets if TEST_PATH.search(x) and committed_test(os.path.realpath(os.path.join(cwd, x)), root)]
     if tests:
         return "ask", f"deletes test file(s) {', '.join(tests[:3])}", f"테스트 파일 {', '.join(tests[:3])}을(를) 지워요", \
             [os.path.realpath(os.path.join(cwd, x)) for x in tests]
@@ -796,13 +823,24 @@ def git_affected(cwd, key, git_args=()):
     return [os.path.join(top.strip(), rel) for rel in out.split("\0") if rel][:2000] if rc == 0 else [cwd]
 
 
+def expand(token, env):
+    """Expand $NAME and ${NAME} for variables whose value is known; leave the rest untouched."""
+    return re.sub(r"\$\{?([A-Za-z_]\w*)\}?", lambda m: env.get(m.group(1), m.group(0)), token)
+
+
 def danger(cmd, root, base=None, depth=0):
     """Return (verdict, english, korean, backup_helps, targets) for the riskiest part of a whole command."""
     rank = {None: 0, "ask": 1, "deny": 2}
     worst, helps_all, targets = (None, "", ""), True, []
     cwd = os.path.realpath(str(base or root))
     segs = segments(cmd)
+    env = {k: os.environ[k] for k in ("HOME", "TMPDIR") if k in os.environ}
     for i, (_, raw) in enumerate(segs):
+        raw = [expand(tk, env) for tk in raw]
+        assigns = [tk for tk in raw if re.match(r"^[A-Za-z_]\w*=", tk)]
+        if raw and (len(assigns) == len(raw) or raw[0] == "export" and all("=" in tk for tk in raw[1:])):
+            env.update(tk.split("=", 1) for tk in raw if "=" in tk)
+            continue
         toks = unwrap(raw)
         if not toks:
             continue
@@ -846,7 +884,9 @@ def danger(cmd, root, base=None, depth=0):
                 if prog in ("echo", "cat", "printf") and not (nxt and os.path.basename(nxt[0]) in DB_CLIENTS):
                     break  # printing SQL is harmless unless it is piped into a database
                 if prog in progs and (not pattern or re.search(pattern, words)):
-                    hit = ("ask", en, ko, helps, [])
+                    # find deletes under its search folders; for other rules the scope is unknown (the project)
+                    where = [a for a in toks[1:] if not a.startswith(("-", "(", "!"))][:1] if prog == "find" else []
+                    hit = ("ask", en, ko, helps, [os.path.realpath(os.path.join(cwd, w)) for w in where] or [cwd])
                     break
         if hit:
             helps_all = helps_all and hit[3]
@@ -997,11 +1037,12 @@ RULES = """vibe-claude is active. The user may not read code, so:
 2. Report in plain words: what changed for the user, how they can see it themselves (a URL, a command, or where to click), and what might break. No diffs or code unless asked.
 3. Same error twice: change the approach instead of retrying.
 4. Change only what was asked. Never weaken, skip or delete tests to make them pass; fix the code.
-5. Earlier states are saved automatically; the user can return to one with /vibe-claude:undo."""
+5. Earlier states are saved automatically; the user can return to one with /vibe-claude:undo. If the user says a folder is disposable (for example generated screenshots), run `python3 "{vibe}" allow-delete <folder>` from the project so deleting it stops asking."""
 
 
 def on_session_start(v):
-    emit({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": RULES}})
+    emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                 "additionalContext": RULES.replace("{vibe}", str(Path(__file__).resolve()))}})
 
 
 def on_prompt(v):
@@ -1089,7 +1130,11 @@ def pre_bash(v, cmd, lang):
                     "Explain to the user in plain words what you wanted to do and find a narrower command.")
     if verdict:
         snap = v.snapshot("guard", cmd[:100])
+        safe = [os.path.realpath(os.path.join(v.root, d)) for d in v.config["safe_to_delete"] if isinstance(d, str) and d]
+        targets = [x for x in targets if not any(inside(x, d) for d in safe)]  # folders the user said are disposable
         saved = helps and bool(snap) and not v.unsaved_under(targets)
+        if saved and not en.startswith("deletes test file"):
+            return  # everything it touches is in the backup just taken: /vibe-claude:undo brings it back
         what = ko if lang == "ko" else en
         tail = t("ask_files" if saved else "ask_nofiles", lang)
         return ask(f"{t('ask_head', lang, what=what)}\n{tail} {t('ask_tail', lang)}\n$ {cmd[:300]}")
@@ -1513,6 +1558,16 @@ def cli(argv):
             print(f"Restored. The files from just before this undo were saved as snapshot {info[:10]}; restore that id "
                   "to undo the undo." if ok else f"Not restored: {info}")
             return 0 if ok else 1
+    if cmd == "allow-delete" and len(argv) > 1:
+        rel = os.path.relpath(os.path.realpath(argv[1]), v.root)
+        if rel.startswith("..") or rel == ".":
+            print("Only folders inside the project can be marked.", file=sys.stderr)
+            return 1
+        cfg = v.load("config.json", {})
+        cfg["safe_to_delete"] = sorted(set(cfg.get("safe_to_delete", [])) | {rel})
+        v.save("config.json", cfg)
+        print(f"Deleting files under {rel} will no longer ask (its contents are not backed up).")
+        return 0
     if cmd == "checks":
         green = v.load("green.json", [])
         if len(argv) > 2 and argv[1] == "forget":
@@ -1527,7 +1582,8 @@ def cli(argv):
                           "checks": [shlex.join(g["argv"]) for g in v.load("green.json", []) if g.get("argv")]},
                          indent=1, ensure_ascii=False))
         return 0
-    print("usage: vibe.py undo [list|show ID|restore ID] | checks [forget CMD] | status", file=sys.stderr)
+    print("usage: vibe.py undo [list|show ID|restore ID] | checks [forget CMD] | allow-delete FOLDER | status",
+          file=sys.stderr)
     return 2
 
 
