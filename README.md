@@ -1,241 +1,148 @@
-# Vibe-Claude
-
 <p align="center">
-  <img src="assets/vibe-claude.jpeg" alt="Vibe-Claude Logo" width="400">
+  <img src="assets/banner.png" alt="vibe-claude: build with AI without reading code, and still know it works" width="100%">
 </p>
 
-> Don't fight the tool. Sharpen the edge.
+<p align="center">
+  <b>English</b> · <a href="README.ko.md"><b>한국어</b></a>
+</p>
 
-A minimal, open-source guardrail plugin for [Claude Code](https://code.claude.com/docs) — distilled through several months of real use down to what repeatedly helped.
+<h2 align="center">Your AI says “Done!”<br>vibe-claude makes sure it really is.</h2>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai)
-[![CI](https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml)
+<p align="center">
+  For people who build apps with Claude Code but can't read code.<br>
+  <b>Install once. Nothing to learn. No questions asked.</b>
+</p>
 
----
+<table>
+<tr>
+<td width="50%" valign="top">
 
-## What This Is
+### ✅ No more fake “done”
+Claude can't say it's finished until your app was **actually run and worked**. Just saying “it works” is not enough.
 
-2 hooks. 5 rules. That's the core.
+</td>
+<td width="50%" valign="top">
 
-Vibe-Claude adds two things Claude Code doesn't enforce natively:
+### ↩️ Nothing is ever lost
+Every change is saved automatically. Something broke, or got deleted? Just say **“undo”**.
 
-1. **Stop Guard** — Challenges completion claims that do not include execution evidence
-2. **Post-Edit Check** — Validates syntax after every file edit
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-Everything else is Claude Code doing what it already does best.
+### 👀 A second AI double-checks
+A different AI (OpenAI Codex) looks over each change and sends Claude back to fix real problems. *Optional: only if you have Codex.*
 
----
+</td>
+<td width="50%" valign="top">
 
-## Install
+### 🤫 No technical questions
+It never asks you things you can't judge. It decides safely, then tells you what happened **in one plain line**.
 
-In Claude Code:
+</td>
+</tr>
+</table>
+
+<h3 align="center">Install: paste these two lines into Claude Code</h3>
 
 ```text
 /plugin marketplace add kks0488/vibe-claude
 /plugin install vibe-claude@vibe-claude
 ```
 
-The plugin supplies the hooks without changing your selected model. `CLAUDE.md` is an optional project-instruction template; copy or adapt it only if its five rules fit your project.
+<p align="center"><b>Claude Code alone is enough.</b> No Codex subscription? Everything works except the second-AI review, which is simply skipped.</p>
 
-For local development, clone the repository and run `claude --plugin-dir ./vibe-claude`.
+<p align="center">
+  <img src="assets/demo.gif" alt="Claude is stopped until tests pass, deleted files come back with undo, a second AI reviews the change" width="100%">
+</p>
 
-## Structure
+## What you'll notice
 
+At the end of every change, one line tells you the truth:
+
+| You see | It means |
+| --- | --- |
+| 🟢 `vibe ✓ 2 files changed · checked: npm test` | It was really tested after the last change, and it passed. |
+| 🟡 `vibe ⚠ … NOT verified` | Nothing could be tested. Be careful with this change. |
+| 🔴 `vibe ✗ … check FAILED` | It's still broken, and Claude knows. |
+| ⚪ `… could not be undone — …` | Claude did something permanent (like resetting a database), and here is what. |
+
+Changed your mind? Say **“undo”** or **“go back to before the login change.”** That's all.
+
+## See it in action
+
+**Proof.** Claude says it's done, gets stopped, runs the tests, and the receipt shows what really happened.
+
+<p align="center"><img src="assets/demo-proof.svg" alt="Terminal demo: Claude is stopped until it actually tests the change" width="100%"></p>
+
+**Safety and undo.** Deleted files are kept, a permanent step makes Claude stop and think, and “undo” brings everything back.
+
+<p align="center"><img src="assets/demo-guard.svg" alt="Terminal demo: files are kept before deleting, and undo restores them" width="100%"></p>
+
+## Tested on real work
+
+- Tuned by replaying **16 days of real sessions (about 22,000 commands)**.
+- **87 automated tests**, plus runs with real Claude and real Codex.
+- Reviewed four times by Codex before release.
+- Costs about **1% more** AI usage.
+
+---
+
+<details>
+<summary><b>🔧 Under the hood (for the curious)</b></summary>
+
+<br>
+
+| Part | What happens |
+| --- | --- |
+| **Proof gate** | Every shell command and its real exit code is logged. After a code change, Claude can't stop until a test, build or run of the program passes *after the last edit*. Words in the reply don't count; neither does a result hidden by a pipe, `;` or `\|\| true`. |
+| **Regression ratchet** | Single check commands that passed before in the project are re-run at the end of a change. |
+| **Second opinion** | With [Codex CLI](https://github.com/openai/codex) installed and logged in, `codex exec` reviews the diff read-only in the background (secrets redacted) and wakes Claude via `asyncRewake` on findings. |
+| **Receipt** | A `systemMessage` built from the log, never from the model. |
+| **Snapshots + undo** | A private git store in `~/.vibe-claude/` (outside the project) saves your files at every request and before risky commands, git project or not. `/vibe-claude:undo` restores by snapshot id and can itself be undone. |
+| **Trash** | Files a delete would remove that snapshots don't cover (git-ignored, over 5 MB, outside the project; up to 300 MB) are copied to a 7-day trash first. |
+| **Guard** | Irreversible steps (database resets, force pushes, cloud deletes, branch deletes) are denied once with a reason so Claude decides from the conversation; the identical retry goes through and the receipt reports it. Deleting the project, home folder or disk is always refused. |
+| **Test guard** | Edits that remove assertions, add `skip`/`xfail`/`.only` or always-true checks, and deletions of committed tests, are stopped once. |
+| **Package check** | `npm`/`pip`/`uv`/`cargo` installs are checked against the public registry: names that don't exist are refused, packages under 14 days old are stopped once. Private registries are never queried. |
+| **Secret check** | Writing real-looking API keys or private keys into code is refused; `.env` files are allowed. |
+| **Syntax check** | Python, JS, TS (with the project's own `typescript`), JSON, YAML, TOML, shell and notebooks. |
+
+**Requirements:** `python3` and `git`. Codex is optional.
+
+**Settings:** optional `.vibe/config.json` in your project:
+
+```json
+{ "codex": "auto", "ratchet": true, "snapshots": true, "packages": true, "lang": null, "safe_to_delete": [] }
 ```
-vibe-claude/
-├── .claude-plugin/     # plugin and marketplace manifests
-├── hooks/
-│   ├── hooks.json      # hook registry
-│   ├── stop-guard.sh   # completion claim → evidence check
-│   └── post-edit.sh    # lightweight syntax checks
-├── tests/              # hook regression tests
-└── CLAUDE.md           # optional 5-rule template
+
+`"codex": "off"` turns the second opinion off. `lang` is `"en"` or `"ko"` (default: the language you write in). `python3 <plugin>/hooks/vibe.py status` shows what is active.
+
+**How a request flows:**
+
+```mermaid
+flowchart LR
+    A([You ask]) --> B[Snapshot<br/>your files]
+    B --> C[Claude works]
+    C -->|risky command| G{Guard}
+    G -->|files| T[Back up or<br/>copy to trash] --> C
+    G -->|irreversible| S[Stop Claude once<br/>to decide] --> C
+    C -->|wants to stop| P{Proof gate}
+    P -->|no passing check<br/>after last edit| C
+    P -->|verified| R[Receipt] --> X([Codex review<br/>in background])
+    X -->|real problem| C
 ```
 
----
-
-## The Rules
-
-From `CLAUDE.md`:
-
-1. **Prove it, don't claim it** — Show execution output before claiming done. "Should work" is banned.
-2. **Delegate exploration** — Use subagents for searching/reading. Keep main context for decisions.
-3. **Two-Strike Rule** — Same error twice → change the approach entirely.
-4. **Clarify material ambiguity** — Ask only when an unresolved choice would materially change the result.
-5. **Minimal changes** — Only change what was asked. No drive-by refactors.
-
-## The Hooks
-
-| Hook | Trigger | What it does |
-|------|---------|-------------|
-| stop-guard | Agent tries to stop | For completion claims, blocks once unless test/build/lint/typecheck/execution evidence is present |
-| post-edit | After Write/Edit | Runs syntax validation (Python, JS, JSON, YAML, Bash) |
-
----
-
-## v5.1: Updated After Months of Use
-
-The March 2026 v5 release was intentionally small. Continued use exposed a second class of problems: the old hooks depended on stale input fields, could loop after blocking, accepted source references as proof, interpolated filenames into executable snippets, and forced the `opus` model globally.
-
-The August 2026 v5.1 update fixes those operational problems, adds regression tests and CI, and packages the project as a native Claude Code plugin. The detailed findings are in [`docs/RESEARCH_2026-08.md`](docs/RESEARCH_2026-08.md), and release-level changes are in [`CHANGELOG.md`](CHANGELOG.md).
-
-## The Story: Why v5 Exists
-
-### What we built (v1 — v4)
-
-Over 4 major versions, Vibe-Claude grew into a full orchestration system:
-
-- **13 specialized agents** — analyst, planner, critic, worker, designer, conductor, tester, researcher, advisor, finder, vision, api-tester, writer
-- **8 skills** — vibe, v-turbo, v-git, v-style, v-evolve, v-continue, v-memory, v-compress
-- **5-Phase pipeline** — Routing → Interview → Recon → Planning → Execution → Verification → Polish
-- **8 hook events** — Setup, SessionStart, UserPromptSubmit, SubagentStart, TeammateIdle, TaskCompleted, Stop, PostToolUse
-- **Self-evolution system** — automatic agent creation when capability gaps were detected
-- **Memory system** — lessons, patterns, decisions, context with grep-based recall
-- **Context management** — compression, checkpointing, session handoff
-
-689 lines of markdown prompts orchestrating Claude Code like a puppet theater.
-
-### What happened
-
-**Claude Code's updates outpaced our development.**
-
-Every few weeks, Anthropic shipped features that made our layers redundant:
-
-| What we built | What Claude Code shipped |
-|--------------|------------------------|
-| v-memory (file + grep) | Auto Memory (built-in, semantic) |
-| v-compress (context compression) | Compaction API (server-side, automatic) |
-| v-continue (session restore) | Session auto-restore (built-in) |
-| v-conductor (orchestrator agent) | Agent tool + subagents (built-in) |
-| v-turbo (parallel execution) | Parallel tool calls (built-in) |
-| v-finder (file search) | Glob, Grep, Explore agent (built-in) |
-| 13 persona agents | Claude already plays every role |
-| 5-Phase system | Plan mode (built-in) |
-
-We were writing prompt instructions for things Claude already knew how to do. The 13 agents were personality wrappers. The 5-Phase system was a rigid pipeline over Claude's natural reasoning. The skills were markdown files restating built-in capabilities.
-
-**The system wasn't enhancing Claude Code. It was constraining it.**
-
-All that markdown was consuming context window — the most precious resource — to tell Claude things it already knew.
-
-### What we kept
-
-We asked: *"What does Claude Code still not do well?"*
-
-Two things:
-
-1. **It sometimes claims "done" without actually running the code.** The stop-guard hook fixes this at the process level — not a prompt suggestion, an actual gate.
-
-2. **It sometimes breaks syntax after edits.** The post-edit hook catches this immediately — automatic validation, zero context cost.
-
-Everything else was deleted. 93% reduction.
-
-### The result
-
-| | v4 | v5 |
-|-|----|----|
-| Files | 70+ | 5 |
-| Agents | 13 | 0 |
-| Skills | 8 | 0 |
-| Hooks | 8 | 2 |
-| Lines of prompts | ~689 | ~20 |
-| Context overhead | High | Near zero |
-
----
-
-## Lessons Learned
-
-For anyone building systems on top of AI coding tools — we learned these the hard way.
-
-### 1. The platform will eat your features.
-
-We spent weeks building a memory system with file-based storage and grep search. Then Claude Code shipped Auto Memory with semantic recall. We built a context compression skill. Then Compaction API landed, server-side and automatic. We built a session restore command. It became a built-in.
-
-**Every feature we built was a bet that the platform wouldn't solve it natively. We lost every bet.**
-
-If you're building on top of an AI tool that ships updates every few weeks, ask yourself: "Will this still be needed in 3 months?" If you're not sure, don't build it. Wait. The platform is probably already working on it.
-
-### 2. Prompts are not code.
-
-We wrote 689 lines of markdown telling Claude how to behave. "NEVER stop without proof." "ALWAYS delegate exploration." "Run verification tribunal."
-
-Here's the uncomfortable truth: **a prompt is a suggestion, not a contract.** Claude can ignore every word. And sometimes it did.
-
-The only things that actually worked were the hooks — real code running at the process level, returning exit codes that the system respects. The stop-guard hook doesn't ask Claude to show evidence. It checks for evidence and blocks the stop if it's not there.
-
-**If you need a guarantee, write code. If you need a suggestion, write a prompt. Know which one you need.**
-
-### 3. Complexity has a hidden cost: context.
-
-Our 13 agents, 8 skills, and 5-Phase system looked impressive. But every one of those markdown files gets loaded into the context window. That's thousands of tokens spent before Claude writes a single line of code.
-
-Context window is Claude's working memory. Every token of system prompt is a token that can't be used for reasoning about your actual problem. We were filling Claude's brain with instructions about how to think, leaving less room for actual thinking.
-
-**The irony: our "enhancement" was making Claude dumber by stealing its context.**
-
-After removing 93% of the prompts, Claude performed better on the same tasks. Not because we added something. Because we removed what was in the way.
-
-### 4. Persona prompts are an illusion.
-
-We had 13 agents: v-analyst, v-planner, v-critic, v-worker, v-designer... Each with a personality, a role description, permission settings.
-
-But Claude doesn't become a better analyst because you tell it "you are an analyst." It's already trained on analysis. The persona file was a costume, not a capability. Claude in a v-analyst costume is the same Claude without it — except now it's spending tokens reading the costume description.
-
-**Don't tell the model what it already knows. Don't wrap capabilities in personas. Just ask for what you need.**
-
-### 5. The hardest skill is deletion.
-
-v1 took a week. v2 added agents. v3 added skills. v4 added hooks, teams, frontmatter, evolution. Each version was bigger, more complex, more "powerful."
-
-v5 deleted 93% of it.
-
-That deletion was harder than any of the building. Every file we removed was something we'd designed, tested, debugged, documented. Deleting it felt like admitting failure.
-
-But it wasn't failure. The system worked — it worked so well that the platform adopted the same ideas. Our job was done. We just needed to accept that.
-
-**If your enhancement layer keeps growing, you're probably solving problems the platform will solve better. Stop. Measure what actually helps. Delete the rest.**
-
-### 6. Find the real gaps.
-
-After deleting everything, we asked: "What does Claude Code actually fail at?"
-
-Not "what could be theoretically better" — what actually goes wrong in practice?
-
-Two things: (1) It sometimes says "done" without running the code. (2) It sometimes breaks syntax. That's it. Two problems. Two hooks. Done.
-
-**Don't build for imagined weaknesses. Watch the tool fail in practice. Fix those specific failures. Nothing more.**
-
----
-
-## FAQ
-
-**Q: Won't removing all the agents make it weaker?**
-
-No. Claude Code spawns subagents on its own when needed. A markdown file saying "you are an analyst" doesn't make Claude a better analyst — it just uses context.
-
-**Q: What about complex multi-step tasks?**
-
-Use Claude Code's built-in Plan mode (`/plan`). It's more flexible than a rigid 5-Phase pipeline and doesn't cost context.
-
-**Q: What about memory?**
-
-Claude Code's Auto Memory handles this natively. It's better than our grep-based system.
-
-**Q: Should I upgrade from v4 or v5.0?**
-
-Yes. Move from v4 to the small v5 design. v5.0 users should update because v5.1 follows the current hook schema, prevents continuation loops, fixes unsafe path interpolation, and no longer overrides model choice.
-
----
-
-## License
-
-[MIT](LICENSE) © Kyoungsoo Kim and contributors.
-
-## Author
-
-Created by [@kks0488](https://github.com/kks0488)
-
----
-
-> *The best system is the one you don't notice.*
+**What it deliberately doesn't do:** Claude Code already has plan mode, memory, subagents, `/rewind`, `/code-review` and `/goal`; superpowers, spec-kit and claude-mem cover methodology, specs and memory. vibe-claude only adds what those leave open: proof a model can't fake, a reviewer that isn't the same model, and an undo that also covers shell commands. The whole plugin is one standard-library Python file, [`hooks/vibe.py`](hooks/vibe.py), and one skill.
+
+**FAQ.** *Slower?* An unchecked change gets one extra round of testing; snapshots take under a second on typical projects. *Need Codex?* No; the review step is skipped without it. *Windows?* Not tested yet. *Where did the 13 agents go?* See [docs/HISTORY.md](docs/HISTORY.md).
+
+</details>
+
+<p align="center">
+  <a href="https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml"><img src="https://github.com/kks0488/vibe-claude/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/kks0488/vibe-claude/releases"><img src="https://img.shields.io/github/v/release/kks0488/vibe-claude?color=d97757&label=release" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT license"></a>
+  <br>
+  <a href="CHANGELOG.md">Changelog</a> · <a href="docs/HISTORY.md">History</a> · MIT © Kyoungsoo Kim and contributors
+</p>

@@ -1,24 +1,40 @@
 {
+  "description": "vibe-claude v6: proof, guard and undo. One script handles every event.",
   "hooks": {
-    "Stop": [
+    "SessionStart": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/stop-guard.sh"
-          }
-        ]
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" session-start", "timeout": 10 }]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" prompt", "timeout": 60 }]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" pre-tool", "timeout": 60 }]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" post-tool", "timeout": 90 }]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" post-tool-fail", "timeout": 30 }]
+      }
+    ],
+    "Stop": [
+      {
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/post-edit.sh"
-          }
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" stop", "timeout": 300 },
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" codex", "asyncRewake": true, "timeout": 1200 }
         ]
       }
     ]

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "vibe-claude",
-  "version": "5.1.0",
-  "description": "Minimal evidence and syntax guardrails for Claude Code, refined through months of real use.",
+  "version": "6.0.0",
+  "description": "Proof, guard and undo for people who do not read code: completion needs real passing checks, risky commands ask first, every request is snapshotted, and Codex reviews when installed.",
   "author": {
     "name": "Kyoungsoo Kim",
     "url": "https://github.com/kks0488"

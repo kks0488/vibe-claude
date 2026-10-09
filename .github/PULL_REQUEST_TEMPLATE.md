@@ -4,6 +4,6 @@
 
 ## Verification
 
-- [ ] `bash -n hooks/*.sh tests/*.sh`
-- [ ] `bash tests/hooks.bats.sh`
+- [ ] `python3 -m unittest discover -s tests -v`
+- [ ] `claude plugin validate --strict .`
 - [ ] Documentation updated when behavior changed
