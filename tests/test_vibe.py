@@ -236,6 +236,43 @@ class ProofTests(Project):
         self.write("app.py", "x = 3\n")  # changed by a later shell command
         self.assertIn("nothing was run", self.stop()["reason"])
 
+    def test_checks_of_another_project_prove_nothing(self):
+        self.edit("app.py")
+        self.ran("cd ../some-other-project && pytest")
+        self.assertIn("nothing was run", self.stop()["reason"])
+
+    def test_skipping_the_failing_tests_does_not_hide_the_failure(self):
+        self.edit("app.py")
+        self.ran("pytest", ok=False, stdout="1 failed")
+        self.ran("pytest --ignore=tests/test_broken.py")
+        self.ran("pytest -k 'not broken'")
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_deleting_code_after_the_check_needs_a_new_check(self):
+        self.write("helper.py", "x = 1\n")
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="clean up", prompt_id="d1")
+        self.pid = "d1"
+        self.write("app.py", "x = 2\n")
+        self.ran("python3 app.py")
+        time.sleep(0.05)
+        (self.dir / "helper.py").unlink()
+        self.hook("post-tool", tool_name="Bash", tool_input={"command": "rm helper.py"}, tool_response={"stdout": ""})
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_receipt_reflects_a_ratchet_failure_after_shell_only_changes(self):
+        self.write("tests/check.sh", "exit 0\n")
+        self.ran("bash tests/check.sh")
+        self.write("tests/check.sh", "exit 1\n")
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="sed it", prompt_id="r1")
+        self.pid = "r1"
+        self.write("app.py", "x = 2\n")
+        self.ran("python3 app.py")
+        self.assertIn("Regression", self.stop()["reason"])
+        out = self.stop("Still failing; open localhost to see.", active=True)
+        self.assertIn("vibe ✗", out["systemMessage"])
+
     def test_background_work_ends_honestly_without_blocking(self):
         self.edit("app.py")
         out = self.stop(background=[{"id": "dev-server"}])
@@ -626,12 +663,15 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.hook("prompt", prompt="Add deploy key")
         self.write("deploy/id_ed25519", pem)
         self.write("deploy/notes.py", "KEY = " + repr(pem) + "\n")
-        self.ran("python3 deploy/notes.py")
+        self.write("deploy/app.py", "print('deploying')\n")
+        self.ran("python3 deploy/app.py")
         self.stop()
         self.codex()
         prompt = (self.bin / "prompt").read_text()
+        self.assertIn("deploying", prompt)
         self.assertNotIn(body, prompt)
         self.assertNotIn("id_ed25519", prompt)
+        self.assertNotIn("notes.py", prompt)
 
     def test_a_failed_review_is_retried(self):
         script = self.bin / "codex"
