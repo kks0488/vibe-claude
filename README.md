@@ -6,91 +6,93 @@
   <b>English</b> · <a href="README.ko.md"><b>한국어</b></a>
 </p>
 
-<h2 align="center">Your AI says “Done!”<br>vibe-claude makes sure it really is.</h2>
+<h2 align="center">When Claude says it's done,<br>vibe-claude checks that it actually works.</h2>
 
 <p align="center">
-  For people who build apps with Claude Code but can't read code.<br>
-  <b>Install once. Nothing to learn. No questions asked.</b>
+  For people who build with Claude Code but don't read code.<br>
+  Install it once. There is nothing to learn.
 </p>
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### ✅ No more fake “done”
-Claude can't say it's finished until your app was **actually run and worked**. Just saying “it works” is not enough.
+### It checks the work
+Claude can't finish a change until the code was actually run and passed. Saying "it works" doesn't count.
 
 </td>
 <td width="50%" valign="top">
 
-### ↩️ Nothing is ever lost
-Every change is saved automatically. Something broke, or got deleted? Just say **“undo”**.
+### It keeps your files safe
+Every change is backed up. If something breaks or gets deleted, say "undo".
 
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 
-### 👀 A second AI double-checks
-A different AI (OpenAI Codex) looks over each change and sends Claude back to fix real problems. *Optional: only if you have Codex.*
+### A second AI reviews the change
+If you use OpenAI Codex, it reviews each change and sends Claude back to fix real problems. Without Codex this step is skipped.
 
 </td>
 <td width="50%" valign="top">
 
-### 🤫 No technical questions
-It never asks you things you can't judge. It decides safely, then tells you what happened **in one plain line**.
+### It doesn't ask you technical questions
+Risky steps are handled without asking you, and you get a one-line summary of what happened.
 
 </td>
 </tr>
 </table>
 
-<h3 align="center">Install: paste these two lines into Claude Code</h3>
+## Install
+
+Paste these two lines into Claude Code:
 
 ```text
 /plugin marketplace add kks0488/vibe-claude
 /plugin install vibe-claude@vibe-claude
 ```
 
-<p align="center"><b>Claude Code alone is enough.</b> No Codex subscription? Everything works except the second-AI review, which is simply skipped.</p>
+Only Claude Code is required. Codex is optional.
 
 <p align="center">
   <img src="assets/demo.gif" alt="Claude is stopped until tests pass, deleted files come back with undo, a second AI reviews the change" width="100%">
 </p>
 
-## What you'll notice
+## What you'll see
 
-At the end of every change, one line tells you the truth:
+Each change ends with one line that says what really happened:
 
-| You see | It means |
+| Line | Meaning |
 | --- | --- |
-| 🟢 `vibe ✓ 2 files changed · checked: npm test` | It was really tested after the last change, and it passed. |
-| 🟡 `vibe ⚠ … NOT verified` | Nothing could be tested. Be careful with this change. |
-| 🔴 `vibe ✗ … check FAILED` | It's still broken, and Claude knows. |
-| ⚪ `… could not be undone — …` | Claude did something permanent (like resetting a database), and here is what. |
+| `vibe ✓ 2 files changed · checked: npm test` | It was tested after the last change and passed. |
+| `vibe ⚠ … NOT verified` | Nothing could be tested. Treat this change with care. |
+| `vibe ✗ … check FAILED` | It is still broken, and Claude has been told. |
+| `… could not be undone — …` | Claude did something permanent, such as resetting a database. The line says what. |
 
-Changed your mind? Say **“undo”** or **“go back to before the login change.”** That's all.
+To go back, say "undo" or "go back to before the login change".
 
-## See it in action
+## Examples
 
-**Proof.** Claude says it's done, gets stopped, runs the tests, and the receipt shows what really happened.
+Claude says it's done, gets stopped, runs the tests, and the summary line shows what ran:
 
 <p align="center"><img src="assets/demo-proof.svg" alt="Terminal demo: Claude is stopped until it actually tests the change" width="100%"></p>
 
-**Safety and undo.** Deleted files are kept, a permanent step makes Claude stop and think, and “undo” brings everything back.
+Files are kept before a delete, a permanent step makes Claude stop and check, and "undo" restores the files:
 
 <p align="center"><img src="assets/demo-guard.svg" alt="Terminal demo: files are kept before deleting, and undo restores them" width="100%"></p>
 
-## Tested on real work
+## Testing
 
-- Tuned by replaying **16 days of real sessions (about 22,000 commands)**.
-- **87 automated tests**, plus runs with real Claude and real Codex.
+- Tuned against 16 days of real sessions, about 22,000 commands.
+- 87 automated tests, plus end-to-end runs with Claude Code and Codex.
 - Reviewed four times by Codex before release.
-- Costs about **1% more** AI usage.
+- Adds about 1% to AI usage.
 
 ---
 
 <details>
-<summary><b>🔧 Under the hood (for the curious)</b></summary>
+<summary><b>Technical details</b></summary>
 
 <br>
 
@@ -99,7 +101,7 @@ Changed your mind? Say **“undo”** or **“go back to before the login change
 | **Proof gate** | Every shell command and its real exit code is logged. After a code change, Claude can't stop until a test, build or run of the program passes *after the last edit*. Words in the reply don't count; neither does a result hidden by a pipe, `;` or `\|\| true`. |
 | **Regression ratchet** | Single check commands that passed before in the project are re-run at the end of a change. |
 | **Second opinion** | With [Codex CLI](https://github.com/openai/codex) installed and logged in, `codex exec` reviews the diff read-only in the background (secrets redacted) and wakes Claude via `asyncRewake` on findings. |
-| **Receipt** | A `systemMessage` built from the log, never from the model. |
+| **Summary line** | A `systemMessage` built from the log, never from the model. |
 | **Snapshots + undo** | A private git store in `~/.vibe-claude/` (outside the project) saves your files at every request and before risky commands, git project or not. `/vibe-claude:undo` restores by snapshot id and can itself be undone. |
 | **Trash** | Files a delete would remove that snapshots don't cover (git-ignored, over 5 MB, outside the project; up to 300 MB) are copied to a 7-day trash first. |
 | **Guard** | Irreversible steps (database resets, force pushes, cloud deletes, branch deletes) are denied once with a reason so Claude decides from the conversation; the identical retry goes through and the receipt reports it. Deleting the project, home folder or disk is always refused. |
