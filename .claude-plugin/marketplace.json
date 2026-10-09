@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.schema.json",
   "name": "vibe-claude",
-  "description": "Minimal, tested guardrails maintained by Kyoungsoo Kim for Claude Code users.",
+  "description": "vibe-claude: a Claude Code plugin that checks AI work actually runs, for people who don't read code.",
   "owner": {
     "name": "Kyoungsoo Kim",
     "url": "https://github.com/kks0488"
@@ -10,7 +10,7 @@
     {
       "name": "vibe-claude",
       "source": "./",
-      "description": "Minimal evidence and syntax guardrails for Claude Code"
+      "description": "When Claude says it's done, vibe-claude checks that it actually works: real test results, backups and undo, optional Codex review, and no technical questions for people who don't read code."
     }
   ]
 }

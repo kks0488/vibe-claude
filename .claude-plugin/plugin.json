@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "vibe-claude",
   "version": "6.0.0",
-  "description": "Proof, guard and undo for people who do not read code: completion needs real passing checks, risky commands ask first, every request is snapshotted, and Codex reviews when installed.",
+  "description": "When Claude says it's done, vibe-claude checks that it actually works: real test results, backups and undo, optional Codex review, and no technical questions for people who don't read code.",
   "author": {
     "name": "Kyoungsoo Kim",
     "url": "https://github.com/kks0488"
@@ -10,5 +10,12 @@
   "homepage": "https://github.com/kks0488/vibe-claude",
   "repository": "https://github.com/kks0488/vibe-claude",
   "license": "MIT",
-  "keywords": ["claude-code", "hooks", "verification", "developer-tools"]
+  "keywords": [
+    "claude-code",
+    "hooks",
+    "verification",
+    "undo",
+    "codex",
+    "vibe-coding"
+  ]
 }
