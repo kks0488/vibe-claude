@@ -1,7 +1,7 @@
 ---
 description: Go back to an earlier state of the project's files (before a request, before a risky command, or the last time checks passed). Use when the user says undo, go back, revert, restore, it worked before, or 되돌려/원래대로/이전으로.
 argument-hint: "[what to undo, in plain words]"
-allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" undo *)
+allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" undo *), Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" trash *)
 ---
 
 The user wants an earlier version of their files back. They may not read code, so talk about moments and effects, never about git.
@@ -22,4 +22,4 @@ The user wants an earlier version of their files back. They may not read code, s
 
 5. Tell the user in one or two plain sentences what is back, how to check it (for example reload the page), and that they can say "undo" again to return.
 
-Snapshots skip git-ignored files, folders such as node_modules, and files over 5 MB. Databases and online services are not part of them; say so if the user expects those to come back.
+Snapshots skip git-ignored files, folders such as node_modules, and files over 5 MB. When a command deleted files the snapshots did not cover, a copy went to the trash (kept 7 days): list it with `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" trash` and bring files back with `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py" trash restore <id>` (it never overwrites files that exist again). Databases and online services are not part of them; say so if the user expects those to come back.

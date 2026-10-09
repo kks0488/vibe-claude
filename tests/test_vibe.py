@@ -369,82 +369,119 @@ class ProofTests(Project):
 
 
 class GuardTests(Project):
-    def test_unrecoverable_delete_asks_in_plain_words(self):
-        self.write(".gitignore", "*.raw\n")
-        self.write("photos/a.raw", "1")  # ignored, so the backup cannot bring it back
-        out = self.pre("Bash", command="rm -rf photos")
-        self.assertEqual(self.decision(out), "ask")
-        self.assertIn("photos", out["hookSpecificOutput"]["permissionDecisionReason"])
+    """The user is never asked. Files are kept recoverable; other irreversible steps stop Claude once."""
 
-    def test_folders_marked_disposable_stop_asking(self):
-        self.write(".gitignore", "qa/\n")
-        self.write("qa/shots/a.png", "1")
-        self.assertEqual(self.decision(self.pre("Bash", command="rm -rf qa/shots")), "ask")
-        self.assertEqual(self.cli("allow-delete", "qa").returncode, 0)
-        self.assertIsNone(self.pre("Bash", command="rm -rf qa/shots"))
-        self.assertEqual(self.cli("allow-delete", "..").returncode, 1)
+    def once(self, cmd):
+        """First attempt is stopped with an explanation for Claude; the identical retry goes through."""
+        out = self.pre("Bash", command=cmd)
+        self.assertEqual(self.decision(out), "deny", cmd)
+        self.assertIn("stopped this once", out["hookSpecificOutput"]["permissionDecisionReason"], cmd)
+        self.assertIsNone(self.pre("Bash", command=cmd), cmd)
+        return out["hookSpecificOutput"]["permissionDecisionReason"]
+
+    def test_no_hook_ever_asks_the_user(self):
+        for cmd in ("rm -rf photos", "git reset --hard", "psql -c 'DROP TABLE users'", "git push -f", "rm tests/test_a.py",
+                    "git clean -fdx", "rm -rf ../elsewhere", "find . -delete"):
+            self.assertNotEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
 
     def test_recoverable_delete_just_takes_a_backup(self):
         self.write("photos/a.jpg", "1")
         self.assertIsNone(self.pre("Bash", command="rm -rf photos"))
         self.assertIn("before risky command", self.cli("undo", "list").stdout)
 
+    def test_files_the_backup_misses_go_to_the_trash_first(self):
+        self.write(".gitignore", "*.raw\n")
+        self.write("photos/a.raw", "precious")  # ignored, so snapshots do not cover it
+        self.assertIsNone(self.pre("Bash", command="rm -rf photos"))
+        shutil.rmtree(self.dir / "photos")
+        listing = self.cli("trash").stdout
+        self.assertIn("rm -rf photos", listing)
+        r = self.cli("trash", "restore", listing.split()[0])
+        self.assertIn("Restored 1", r.stdout)
+        self.assertEqual((self.dir / "photos/a.raw").read_text(), "precious")
+
+    def test_files_outside_the_project_are_kept_too(self):
+        outside = Path(tempfile.mkdtemp(prefix="vibe-outside-"))
+        self.addCleanup(shutil.rmtree, outside, True)
+        (outside / "notes.txt").write_text("keep")
+        self.assertIsNone(self.pre("Bash", command=f"rm -rf {outside}"))
+        shutil.rmtree(outside)
+        self.cli("trash", "restore", self.cli("trash").stdout.split()[0])
+        self.assertEqual((outside / "notes.txt").read_text(), "keep")
+
+    def test_too_large_to_keep_stops_claude_once(self):
+        os.environ["VIBE_HOME"], old = str(self.home), os.environ.get("VIBE_HOME")
+        self.addCleanup(lambda: os.environ.pop("VIBE_HOME") if old is None else os.environ.update(VIBE_HOME=old))
+        limit, vibe.TRASH_MAX = vibe.TRASH_MAX, 10
+        self.addCleanup(setattr, vibe, "TRASH_MAX", limit)
+        self.write(".gitignore", "*.raw\n")
+        self.write("big/a.raw", "x" * 100)
+        captured = []
+        emit, vibe.emit = vibe.emit, captured.append
+        self.addCleanup(setattr, vibe, "emit", emit)
+        v = vibe.Vibe({"cwd": str(self.dir), "prompt_id": "big"})
+        vibe.pre_bash(v, "rm -rf big", "en")
+        self.assertIn("too large", captured[-1]["hookSpecificOutput"]["permissionDecisionReason"])
+        n = len(captured)
+        vibe.pre_bash(v, "rm -rf big", "en")
+        self.assertEqual(len(captured), n)  # Claude decided to go ahead
+
+    def test_folders_marked_disposable_are_not_copied(self):
+        self.write(".gitignore", "qa/\n")
+        self.write("qa/shots/a.png", "1")
+        self.assertEqual(self.cli("allow-delete", "qa").returncode, 0)
+        self.assertIsNone(self.pre("Bash", command="rm -rf qa/shots"))
+        self.assertIn("empty", self.cli("trash").stdout)
+        self.assertEqual(self.cli("allow-delete", "..").returncode, 1)
+
     def test_regenerable_folders_are_allowed(self):
         self.assertIsNone(self.pre("Bash", command="rm -rf node_modules dist .next"))
 
-    def test_catastrophic_delete_is_denied(self):
-        for cmd in ("rm -rf ~", "rm -rf /", "rm -rf .", "sudo rm -rf $HOME/"):
-            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
+    def test_catastrophic_delete_is_always_denied(self):
+        for cmd in ("rm -rf ~", "rm -rf /", "rm -rf .", "sudo rm -rf $HOME/", "env rm -rf /", "sudo -n rm -rf /",
+                    "env FOO=1 rm -rf ~", "rm -rf ..", "rm -rf ./*", "rm -rf docs && rm -rf ~", "bash -c 'rm -rf /'",
+                    "eval rm -rf ~", "cd .. && rm -rf *", "D=$HOME && rm -rf $D"):
+            for _ in range(2):  # retrying does not help
+                self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
 
-    def test_dangerous_commands_ask(self):
-        for cmd in ("git reset --hard HEAD~1", "git push -f origin main", "git clean -fdx",
-                    "psql -c 'DROP TABLE users'", "supabase db reset", "find . -name '*.py' -delete",
-                    "rm -rf ../outside-folder",
-                    "git checkout -- .", "sqlite3 app.db 'DELETE FROM users;'"):
-            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
+    def test_irreversible_steps_stop_claude_once(self):
+        for cmd in ("git push -f origin main", "git -c core.x=1 push --force", "git clean -fdx",
+                    "psql -c 'DROP TABLE users'", "supabase db reset", "python manage.py flush",
+                    "echo 'DROP TABLE x;' | psql", "sqlite3 app.db 'DELETE FROM users;'", "git branch -D old"):
+            reason = self.once(cmd)
+            self.assertIn("cannot be undone", reason)
+            self.assertIn("will not be asked", reason)
 
-    def test_wrappers_and_git_options_do_not_bypass_the_guard(self):
-        for cmd in ("env rm -rf /", "sudo -n rm -rf /", "env FOO=1 rm -rf ~", "rm -rf ..", "rm -rf ./*"):
-            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
-        for cmd in ("git -c core.x=1 push --force", "rm -rf ../other-project/dist",
-                    "rm -rf /tmp-backups", "python manage.py flush", "echo 'DROP TABLE x;' | psql"):
-            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
+    def test_a_retry_counts_only_within_the_same_request(self):
+        self.once("git push -f origin main")
+        self.hook("prompt", prompt="next", prompt_id="p2")
+        out = self.hook("pre-tool", tool_name="Bash", tool_input={"command": "git push -f origin main"}, prompt_id="p2")[0]
+        self.assertEqual(self.decision(out), "deny")
 
-    def test_the_riskiest_part_of_a_command_wins(self):
-        for cmd in ("rm -rf docs && rm -rf ~", "bash -c 'rm -rf /'", "eval rm -rf ~", "cd .. && rm -rf *"):
-            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
-        out = self.pre("Bash", command="cd ../other-project && rm -rf dist")
-        self.assertEqual(self.decision(out), "ask")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
-        out = self.pre("Bash", command="git -C ../other reset --hard")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+    def test_receipt_tells_the_user_about_irreversible_steps(self):
+        self.hook("prompt", prompt="DB 초기화해줘")
+        self.once("supabase db reset")
+        out = self.stop("데이터베이스를 초기화했어요. 앱을 새로고침해 보세요.")
+        self.assertIn("되돌릴 수 없는 작업이 있었어요 — 데이터베이스를 통째로 비워요", out["systemMessage"])
 
-    def test_reset_to_an_older_commit_checks_the_files_it_would_remove(self):
+    def test_reset_to_an_older_commit_keeps_files_the_backup_lacks(self):
         git = lambda *args: subprocess.run(["git", "-C", str(self.dir), "-c", "user.name=t", "-c", "user.email=t@t",
                                             *args], capture_output=True, check=True)
         git("init", "-q")
         self.write("a.py", "1")
         git("add", "-A")
         git("commit", "-qm", "one")
-        self.write("video.bin", "x" * 6_000_000)  # too large for the backup
+        self.write("video.bin", "x" * 6_000_000)  # too large for snapshots, small enough for the trash
         git("add", "-A")
         git("commit", "-qm", "two")
-        out = self.pre("Bash", command="git reset --hard HEAD~1")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
-        self.assertIsNone(self.pre("Bash", command="git reset --hard"))  # clean tree: nothing to lose
-
-    def test_ignored_files_inside_a_folder_void_the_backup_promise(self):
-        self.write(".gitignore", "*.secret\n")
-        self.write("photos/a.jpg", "1")
-        self.write("photos/key.secret", "2")
-        out = self.pre("Bash", command="rm -rf photos")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIsNone(self.pre("Bash", command="git reset --hard HEAD~1"))
+        self.assertIn("git reset --hard HEAD~1", self.cli("trash").stdout)
+        self.assertIsNone(self.pre("Bash", command="git reset --hard"))
 
     def test_heredoc_text_and_known_variables_are_understood(self):
         cmd = "cat > notes.md <<'EOF'\nrm -rf ~\nDROP TABLE users;\nEOF\necho done"
         self.assertIsNone(self.pre("Bash", command=cmd))
         self.assertIsNone(self.pre("Bash", command="S=/tmp/shots && rm -rf $S/cut_*.png ${S}/old"))
-        self.assertEqual(self.decision(self.pre("Bash", command="D=$HOME && rm -rf $D")), "deny")
         self.assertIsNone(self.pre("Bash", command="rm -rf ../elsewhere/src/__pycache__"))
 
     def test_searching_or_dry_runs_are_not_dangerous(self):
@@ -452,37 +489,24 @@ class GuardTests(Project):
                     "echo 'DROP TABLE users;'"):
             self.assertIsNone(self.pre("Bash", command=cmd), cmd)
 
-    def test_backup_promise_is_only_made_when_true(self):
-        self.write("photos/a.txt", "1")
-        self.assertIsNone(self.pre("Bash", command="rm -rf photos"))  # fully backed up: no question needed
-        out = self.pre("Bash", command="git clean -fdx")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
-        out = self.pre("Bash", command="rm -rf ../elsewhere")
-        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
-
     def test_ordinary_commands_pass(self):
         for cmd in ("git status", "ls -la", "npm run build", "git push origin main", "rm notes.txt",
                     "sqlite3 app.db 'DELETE FROM users WHERE id=3;'", "git restore --staged ."):
             self.assertIsNone(self.pre("Bash", command=cmd), cmd)
 
-    def test_korean_users_get_korean_questions(self):
-        self.hook("prompt", prompt="사진 폴더 정리해줘")
-        out = self.pre("Bash", command="git reset --hard")
-        self.assertIn("저장하지 않은 코드 변경", out["hookSpecificOutput"]["permissionDecisionReason"])
+    def test_deleting_a_project_test_stops_claude_once(self):
+        self.write("tests/test_login.py", "def test_a():\n    assert True\n")
+        self.assertIn("Deleting tests", self.once("rm tests/test_login.py"))
 
-    def test_deleting_a_test_file_asks(self):
-        self.assertEqual(self.decision(self.pre("Bash", command="rm tests/test_login.py")), "ask")
-
-    def test_weakening_a_test_asks(self):
+    def test_weakening_a_test_stops_claude_once(self):
         test = "def test_a():\n    assert add(1, 2) == 3\n    assert add(0, 0) == 0\n"
         path = self.write("tests/test_math.py", test)
-        out = self.pre("Edit", file_path=path, old_string="    assert add(0, 0) == 0\n", new_string="")
-        self.assertEqual(self.decision(out), "ask")
-        self.assertIn("checks 2→1", out["hookSpecificOutput"]["permissionDecisionReason"])
-        out = self.pre("Edit", file_path=path, old_string="def test_a", new_string="@pytest.mark.skip\ndef test_a")
-        self.assertEqual(self.decision(out), "ask")
-        out = self.pre("Edit", file_path=path, old_string="== 3", new_string="== 3\n    assert True")
-        self.assertEqual(self.decision(out), "ask")
+        for old, new in (("    assert add(0, 0) == 0\n", ""), ("def test_a", "@pytest.mark.skip\ndef test_a"),
+                         ("== 3", "== 3\n    assert True")):
+            out = self.pre("Edit", file_path=path, old_string=old, new_string=new)
+            self.assertEqual(self.decision(out), "deny", new)
+            self.assertIn("weakens a test", out["hookSpecificOutput"]["permissionDecisionReason"])
+            self.assertIsNone(self.pre("Edit", file_path=path, old_string=old, new_string=new))
 
     def test_strengthening_a_test_passes(self):
         path = self.write("src/math.test.ts", "it('adds', () => { expect(add(1, 2)).toBe(3) })\n")
@@ -510,24 +534,27 @@ class GuardTests(Project):
         self.assertFalse(vibe.private_registry("npm", "react", self.dir))
 
     def test_package_reality_check(self):
-        original = vibe.package_info
+        os.environ["VIBE_HOME"], old = str(self.home), os.environ.get("VIBE_HOME")
+        self.addCleanup(lambda: os.environ.pop("VIBE_HOME") if old is None else os.environ.update(VIBE_HOME=old))
+        original, emit = vibe.package_info, vibe.emit
         captured = []
         vibe.emit = captured.append
         try:
-            v = vibe.Vibe({"cwd": str(self.dir)})
+            v = vibe.Vibe({"cwd": str(self.dir), "prompt_id": "pk"})
             vibe.package_info = lambda eco, name: (False, None)
-            vibe.pre_bash(v, "npm install reqeusts-helperz", "en")
-            self.assertEqual(captured[-1]["hookSpecificOutput"]["permissionDecision"], "deny")
+            for _ in range(2):  # a package that does not exist is always refused
+                vibe.pre_bash(v, "npm install reqeusts-helperz", "en")
+                self.assertEqual(captured[-1]["hookSpecificOutput"]["permissionDecision"], "deny")
             vibe.package_info = lambda eco, name: (True, 3)
             vibe.pre_bash(v, "pip install brand-new-thing", "en")
-            self.assertEqual(captured[-1]["hookSpecificOutput"]["permissionDecision"], "ask")
-            vibe.package_info = lambda eco, name: (None, None)  # offline: fail open
+            self.assertIn("only 3 days old", captured[-1]["hookSpecificOutput"]["permissionDecisionReason"])
             n = len(captured)
+            vibe.pre_bash(v, "pip install brand-new-thing", "en")  # Claude checked and went ahead
+            vibe.package_info = lambda eco, name: (None, None)  # offline: fail open
             vibe.pre_bash(v, "pip install requests", "en")
             self.assertEqual(len(captured), n)
         finally:
-            vibe.package_info = original
-            vibe.emit = lambda obj: print(json.dumps(obj, ensure_ascii=False))
+            vibe.package_info, vibe.emit = original, emit
 
 
 class SyntaxTests(Project):

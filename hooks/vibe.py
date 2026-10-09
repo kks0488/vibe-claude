@@ -27,6 +27,9 @@ DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": Tru
 DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock",
            "log", "snap", "map"}
 MAX_FILE = 5_000_000      # files bigger than this are not snapshotted
+TRASH_MAX = 300_000_000   # deletes of unbacked-up files up to this size are copied to the trash first
+TRASH_FILES = 20_000
+TRASH_KEEP = 7 * 86400    # trash older than this is emptied
 KEEP_SNAPSHOTS = 150      # older snapshots are pruned
 SHADOW_EXCLUDES = """node_modules/
 .venv/
@@ -61,19 +64,8 @@ MSG = {
     "receipt_partial": ("vibe ⚠ {n} file(s) changed · checked: {checks}, but {cmd} gave no clear result{codex} · undo: /vibe-claude:undo",
                         "vibe ⚠ 파일 {n}개 변경 · 확인됨: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} · 되돌리기: /vibe-claude:undo"),
     "codex_wait": (" · Codex review running", " · Codex 검토 중"),
-    "ask_head": ("⚠ Hard to undo: {what}.", "⚠ 되돌리기 어려운 명령이에요: {what}."),
-    "ask_files": ("A backup of your files was saved just now (/vibe-claude:undo).",
-                  "방금 파일 백업을 만들어 뒀어요(/vibe-claude:undo로 되돌릴 수 있어요)."),
-    "ask_nofiles": ("The file backup cannot bring this back.", "파일 백업으로는 되돌릴 수 없어요."),
-    "ask_tail": ("Allow only if you asked for this.", "직접 요청한 일일 때만 허락하세요."),
-    "tests_weak": ("⚠ Claude wants to weaken a test ({detail}) in {path}. Tests are what prove the app works. "
-                   "Allow only if Claude explained why the test itself is wrong.",
-                   "⚠ Claude가 테스트를 약하게 바꾸려고 해요({detail}) — {path}. 테스트는 앱이 제대로 되는지 증명하는 장치예요. "
-                   "테스트 자체가 틀렸다는 설명을 들었을 때만 허락하세요."),
-    "pkg_new": ("⚠ The package '{name}' is very new ({days} days old). Fake look-alike packages often look like this. "
-                "Allow only if you trust it.",
-                "⚠ '{name}' 패키지는 생긴 지 {days}일밖에 안 됐어요. 가짜 패키지가 이런 모습인 경우가 많아요. "
-                "믿을 수 있을 때만 허락하세요."),
+    "irreversible": (" · could not be undone: {what}", " · 되돌릴 수 없는 작업이 있었어요 — {what}"),
+    "irreversible_only": ("vibe ⚠ could not be undone: {what}", "vibe ⚠ 되돌릴 수 없는 작업이 있었어요 — {what}"),
 }
 
 
@@ -1037,7 +1029,7 @@ RULES = """vibe-claude is active. The user may not read code, so:
 2. Report in plain words: what changed for the user, how they can see it themselves (a URL, a command, or where to click), and what might break. No diffs or code unless asked.
 3. Same error twice: change the approach instead of retrying.
 4. Change only what was asked. Never weaken, skip or delete tests to make them pass; fix the code.
-5. Earlier states are saved automatically; the user can return to one with /vibe-claude:undo. If the user says a folder is disposable (for example generated screenshots), run `python3 "{vibe}" allow-delete <folder>` from the project so deleting it stops asking."""
+5. Earlier states are saved automatically; the user can return to one with /vibe-claude:undo. Never ask the user to judge technical risk; when vibe-claude stops an action, you decide from the conversation. If you keep deleting a folder that only holds generated output (screenshots, build results), run `python3 "{vibe}" allow-delete <folder>` from the project so it is not copied to the trash each time."""
 
 
 def on_session_start(v):
@@ -1083,14 +1075,72 @@ def new_content(tool, inp, old):
     return text
 
 
-def ask(reason):
-    emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
-                                 "permissionDecisionReason": reason}})
-
-
 def deny(reason):
     emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                  "permissionDecisionReason": reason}})
+
+
+def warn_once(v, key, reason, note):
+    """Stop Claude once so it decides, instead of asking a user who cannot judge code.
+
+    The identical action retried in the same request goes through and is noted on the receipt.
+    """
+    st = v.load("state.json", {})
+    turn = v.pid or v.sid
+    seen = st.get("warned", {}).get(turn, [])
+    digest = hashlib.sha1(key.encode()).hexdigest()[:16]
+    if digest in seen:
+        v.log(ev="override", what=note)
+        return
+    v.state_update(warned={turn: seen + [digest]})
+    deny(reason + " The user does not read code and will not be asked, so you decide: check the conversation. If this "
+         "is clearly what the user wanted, run exactly the same action again and it will go through, then tell the "
+         "user in plain words what was done. Otherwise choose a safer way.")
+
+
+def trash(v, targets, cmd):
+    """Copy files the backup does not cover into the trash so the delete can be undone. None if too big."""
+    files, size = [], 0
+    for target in targets:
+        path = Path(target)
+        if path.is_symlink() or path.is_file():
+            walk = [path]
+        elif path.is_dir():
+            walk = (Path(d) / f for d, dirs, names in os.walk(path) for f in names + [x for x in dirs if
+                                                                                       (Path(d) / x).is_symlink()])
+        else:
+            continue
+        for f in walk:
+            try:
+                size += f.lstat().st_size
+            except OSError:
+                continue
+            files.append(f)
+            if size > TRASH_MAX or len(files) > TRASH_FILES:
+                return None
+    if not files:
+        return "nothing"
+    tid = time.strftime("%Y%m%d-%H%M%S-") + hashlib.sha1(cmd.encode()).hexdigest()[:6]
+    base = v.dir / "trash" / tid
+    for f in files:
+        rel = os.path.relpath(f, v.root) if inside(f, v.root) else os.path.join("_outside", str(f.absolute()).lstrip("/"))
+        dest = base / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if f.is_symlink():
+                os.symlink(os.readlink(f), dest)
+            else:
+                shutil.copy2(f, dest)
+        except OSError:
+            return None
+    (base / ".vibe-trash.json").write_text(json.dumps({"t": time.time(), "cmd": cmd[:300], "files": len(files)}))
+    for old in (v.dir / "trash").iterdir():
+        try:
+            if time.time() - old.stat().st_mtime > TRASH_KEEP:
+                shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            pass
+    return tid
 
 
 def on_pre_tool(v):
@@ -1120,7 +1170,11 @@ def on_pre_tool(v):
     if old and tool != "NotebookEdit" and TEST_PATH.search(rel):
         detail = weakening(old, new)
         if detail:
-            return ask(t("tests_weak", lang, detail=detail, path=rel))
+            return warn_once(v, "edit:" + path + hashlib.sha1(new.encode()).hexdigest(),
+                             f"vibe-claude stopped this edit once: it weakens a test in {rel} ({detail}). Tests are the "
+                             "only proof the app works for a user who cannot read code. Fix the code instead, unless "
+                             "the test itself is wrong.",
+                             f"테스트 수정({rel})" if lang == "ko" else f"changed a test ({rel})")
 
 
 def pre_bash(v, cmd, lang):
@@ -1130,14 +1184,23 @@ def pre_bash(v, cmd, lang):
                     "Explain to the user in plain words what you wanted to do and find a narrower command.")
     if verdict:
         snap = v.snapshot("guard", cmd[:100])
-        safe = [os.path.realpath(os.path.join(v.root, d)) for d in v.config["safe_to_delete"] if isinstance(d, str) and d]
-        targets = [x for x in targets if not any(inside(x, d) for d in safe)]  # folders the user said are disposable
-        saved = helps and bool(snap) and not v.unsaved_under(targets)
-        if saved and not en.startswith("deletes test file"):
-            return  # everything it touches is in the backup just taken: /vibe-claude:undo brings it back
         what = ko if lang == "ko" else en
-        tail = t("ask_files" if saved else "ask_nofiles", lang)
-        return ask(f"{t('ask_head', lang, what=what)}\n{tail} {t('ask_tail', lang)}\n$ {cmd[:300]}")
+        if en.startswith("deletes test file"):
+            return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}. Deleting tests to get a pass "
+                             "hides broken code.", what)
+        if not helps:  # databases, force pushes, cloud resources: no file backup can bring these back
+            return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}, and that cannot be undone.", what)
+        safe = [os.path.realpath(os.path.join(v.root, d)) for d in v.config["safe_to_delete"] if isinstance(d, str) and d]
+        targets = [x for x in targets if not any(inside(x, d) for d in safe)]  # folders marked disposable
+        unsaved = [x for x in targets if not snap or v.unsaved_under([x])]
+        if not unsaved:
+            return  # everything it touches is in the backup just taken: /vibe-claude:undo brings it back
+        tid = trash(v, unsaved, cmd)
+        if tid:
+            v.log(ev="trash", id=tid, cmd=cmd[:300])
+            return  # a copy of what the backup lacks is in the trash: `vibe.py trash restore` brings it back
+        return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}, and the files are too large "
+                         f"(over {TRASH_MAX // 1_000_000} MB) to keep a copy, so it could not be undone.", what)
     if re.search(r"\bgit\b.*\b(checkout|switch|merge|rebase|pull|stash|apply|am)\b|\bsed\s+-i|\bmv\s|\bperl\s+-[a-z]*i", cmd):
         v.snapshot("guard", cmd[:100])
     if v.config["packages"]:
@@ -1151,7 +1214,10 @@ def pre_bash(v, cmd, lang):
                             "malware. Find the real package name in official documentation. If it lives in a private "
                             "registry, pass that registry explicitly (for example --registry or --index-url).")
             if exists and age is not None and age < 14:
-                return ask(t("pkg_new", lang, name=name, days=age))
+                return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this install once: the {eco} package '{name}' "
+                                 f"is only {age} days old. Brand-new packages with familiar-looking names are a common "
+                                 "malware trick. Make sure it is the official package.",
+                                 f"새 패키지 설치({name})" if lang == "ko" else f"installed a new package ({name})")
 
 
 def check_syntax(path, root):
@@ -1378,8 +1444,11 @@ def on_stop(v):
     sid = stop_id(d)
     waiting = bool(d.get("background_tasks"))
     p = proof(v)
+    overrides = list(dict.fromkeys(e.get("what", "") for e in v.turn() if e.get("ev") == "override"))
     if not p:
         v.state_update(stop={"id": sid, "decision": "nochange", "t": time.time()})
+        if overrides:
+            emit({"systemMessage": t("irreversible_only", v.lang, what=", ".join(overrides[:3]))})
         return
     reason = None
     broken = ratchet(v, p) if p["passed"] and not p["failed"] and v.config["ratchet"] else None
@@ -1423,6 +1492,8 @@ def on_stop(v):
             msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
     else:
         msg = t("receipt_none", lang, n=n, codex=codex)
+    if overrides:
+        msg += t("irreversible", lang, what=", ".join(overrides[:3]))
     verified = p["passed"] and not p["failed"] and not p["unclear"]
     v.state_update(stop={"id": sid, "decision": "allow" if verified else "unverified", "t": time.time()})
     emit({"systemMessage": msg})
@@ -1558,6 +1629,39 @@ def cli(argv):
             print(f"Restored. The files from just before this undo were saved as snapshot {info[:10]}; restore that id "
                   "to undo the undo." if ok else f"Not restored: {info}")
             return 0 if ok else 1
+    if cmd == "trash":
+        base = v.dir / "trash"
+        entries = sorted((x for x in base.iterdir() if x.is_dir()), reverse=True) if base.is_dir() else []
+        if len(argv) > 2 and argv[1] == "restore":
+            src = base / argv[2]
+            if not re.fullmatch(r"[\w-]+", argv[2]) or not src.is_dir():
+                print("No such trash id. Run `trash` to list them.", file=sys.stderr)
+                return 1
+            restored = skipped = 0
+            for d, _, names in os.walk(src):
+                for name in names:
+                    f = Path(d) / name
+                    rel = os.path.relpath(f, src)
+                    if rel == ".vibe-trash.json":
+                        continue
+                    dest = Path("/" + rel[len("_outside/"):]) if rel.startswith("_outside/") else v.root / rel
+                    if dest.exists() or dest.is_symlink():
+                        skipped += 1
+                        continue
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, dest, follow_symlinks=False)
+                    restored += 1
+            print(f"Restored {restored} file(s); left {skipped} that exist again untouched.")
+            return 0
+        for e in entries[:15]:
+            try:
+                meta = json.loads((e / ".vibe-trash.json").read_text())
+            except (OSError, ValueError):
+                meta = {}
+            print(f"{e.name}  {ago(meta.get('t', 0)):>10}  {meta.get('files', '?')} file(s)  $ {meta.get('cmd', '')[:90]}")
+        if not entries:
+            print("Trash is empty.")
+        return 0
     if cmd == "allow-delete" and len(argv) > 1:
         rel = os.path.relpath(os.path.realpath(argv[1]), v.root)
         if rel.startswith("..") or rel == ".":
@@ -1582,7 +1686,8 @@ def cli(argv):
                           "checks": [shlex.join(g["argv"]) for g in v.load("green.json", []) if g.get("argv")]},
                          indent=1, ensure_ascii=False))
         return 0
-    print("usage: vibe.py undo [list|show ID|restore ID] | checks [forget CMD] | allow-delete FOLDER | status",
+    print("usage: vibe.py undo [list|show ID|restore ID] | trash [restore ID] | checks [forget CMD] | allow-delete FOLDER"
+          " | status",
           file=sys.stderr)
     return 2
 
