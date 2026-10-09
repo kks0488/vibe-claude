@@ -810,7 +810,11 @@ def git_affected(cwd, key, git_args=()):
     if rc:
         return [cwd]
     rev = next((a for a in list(git_args)[1:] if not a.startswith("-")), "HEAD") if key == "reset" else "HEAD"
-    args = ["ls-files", "-z", "--others", "--exclude-standard"] if key == "clean" else ["diff", "-z", "--name-only", rev, "--"]
+    ignored = key == "clean" and any("x" in a.lower() for a in git_args if a.startswith("-") and not a.startswith("--"))
+    if key == "clean":
+        args = ["ls-files", "-z", "--others"] + ([] if ignored else ["--exclude-standard"])
+    else:
+        args = ["diff", "-z", "--name-only", rev, "--"]
     rc, out, _ = run(["git", "-C", top.strip(), *args], timeout=20)
     return [os.path.join(top.strip(), rel) for rel in out.split("\0") if rel][:2000] if rc == 0 else [cwd]
 
@@ -823,7 +827,7 @@ def expand(token, env):
 def danger(cmd, root, base=None, depth=0):
     """Return (verdict, english, korean, backup_helps, targets) for the riskiest part of a whole command."""
     rank = {None: 0, "ask": 1, "deny": 2}
-    worst, helps_all, targets = (None, "", ""), True, []
+    worst, helps_all, targets, hard = (None, "", ""), True, [], []
     cwd = os.path.realpath(str(base or root))
     segs = segments(cmd)
     env = {k: os.environ[k] for k in ("HOME", "TMPDIR") if k in os.environ}
@@ -849,8 +853,9 @@ def danger(cmd, root, base=None, depth=0):
         elif prog == "eval":
             inline = " ".join(toks[1:])
         if inline is not None and depth < 3:
-            v, en, ko, helps, tg = danger(inline, root, cwd, depth + 1)
-            hit = (v, en, ko, helps, tg) if v else None
+            v, en, ko, helps, tg, inner_hard = danger(inline, root, cwd, depth + 1)
+            hit = (v, en, ko, True, tg) if v else None
+            hard += inner_hard
         elif prog in ("rm", "rmdir", "unlink", "shred", "srm"):
             v, en, ko, tg = rm_verdict(toks, root, cwd)
             hit = (v, en, ko, True, tg) if v else None
@@ -867,9 +872,7 @@ def danger(cmd, root, base=None, depth=0):
             key = git_danger(args)
             if key:
                 en, ko, helps = GIT_EFFECTS[key]
-                if key == "clean" and any("x" in a.lower() for a in args if a.startswith("-") and not a.startswith("--")):
-                    helps = False  # -x also deletes ignored files, which are not in the backup
-                hit = ("ask", en, ko, helps and inside(git_cwd, root), git_affected(git_cwd, key, args))
+                hit = ("ask", en, ko, helps, git_affected(git_cwd, key, args) if helps else [])
         else:
             words = " ".join(toks[1:])
             for progs, pattern, en, ko, helps in DANGER:
@@ -883,11 +886,13 @@ def danger(cmd, root, base=None, depth=0):
         if hit:
             helps_all = helps_all and hit[3]
             targets += hit[4]
+            if not hit[3] or hit[1].startswith("deletes test file"):
+                hard.append((hit[1], hit[2]))  # needs a decision: no backup undoes it, or it is about cheating
             if rank[hit[0]] > rank[worst[0]]:
                 worst = hit[:3]
     if worst[0]:
-        return worst[0], worst[1], worst[2], helps_all, targets
-    return None, "", "", False, []
+        return worst[0], worst[1], worst[2], helps_all, targets, hard
+    return None, "", "", False, [], hard
 
 
 SECRETS = [
@@ -1091,11 +1096,12 @@ def warn_once(v, key, reason, note):
     digest = hashlib.sha1(key.encode()).hexdigest()[:16]
     if digest in seen:
         v.log(ev="override", what=note)
-        return
+        return False
     v.state_update(warned={turn: seen + [digest]})
     deny(reason + " The user does not read code and will not be asked, so you decide: check the conversation. If this "
          "is clearly what the user wanted, run exactly the same action again and it will go through, then tell the "
          "user in plain words what was done. Otherwise choose a safer way.")
+    return True
 
 
 def trash(v, targets, cmd):
@@ -1178,29 +1184,33 @@ def on_pre_tool(v):
 
 
 def pre_bash(v, cmd, lang):
-    verdict, en, ko, helps, targets = danger(cmd, v.root, v.data.get("cwd"))
+    verdict, en, ko, helps, targets, hard = danger(cmd, v.root, v.data.get("cwd"))
     if verdict == "deny":
         return deny(f"vibe-claude blocked a catastrophic command ({en}). Do not try to work around this. "
                     "Explain to the user in plain words what you wanted to do and find a narrower command.")
     if verdict:
         snap = v.snapshot("guard", cmd[:100])
-        what = ko if lang == "ko" else en
-        if en.startswith("deletes test file"):
-            return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}. Deleting tests to get a pass "
-                             "hides broken code.", what)
-        if not helps:  # databases, force pushes, cloud resources: no file backup can bring these back
-            return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}, and that cannot be undone.", what)
+        if hard:  # databases, force pushes, cloud resources, test deletion: Claude must decide
+            tests = [e for e, _ in hard if e.startswith("deletes test file")]
+            other = [e for e, _ in hard if not e.startswith("deletes test file")]
+            reason = "vibe-claude stopped this once:" + (f" it {'; '.join(other)}, and that cannot be undone." if other else "") \
+                + (f" It {'; '.join(tests)}; deleting tests to get a pass hides broken code." if tests else "")
+            note = ", ".join(dict.fromkeys(k if lang == "ko" else e for e, k in hard))
+            if warn_once(v, "bash:" + cmd, reason, note):
+                return
+        # Files: keep everything recoverable. The snapshot covers most; copy the rest to the trash.
         safe = [os.path.realpath(os.path.join(v.root, d)) for d in v.config["safe_to_delete"] if isinstance(d, str) and d]
         targets = [x for x in targets if not any(inside(x, d) for d in safe)]  # folders marked disposable
         unsaved = [x for x in targets if not snap or v.unsaved_under([x])]
-        if not unsaved:
-            return  # everything it touches is in the backup just taken: /vibe-claude:undo brings it back
-        tid = trash(v, unsaved, cmd)
-        if tid:
-            v.log(ev="trash", id=tid, cmd=cmd[:300])
-            return  # a copy of what the backup lacks is in the trash: `vibe.py trash restore` brings it back
-        return warn_once(v, "bash:" + cmd, f"vibe-claude stopped this once: it {en}, and the files are too large "
-                         f"(over {TRASH_MAX // 1_000_000} MB) to keep a copy, so it could not be undone.", what)
+        if unsaved:
+            tid = trash(v, unsaved, cmd)
+            if tid:
+                v.log(ev="trash", id=tid, cmd=cmd[:300])
+            elif warn_once(v, "big:" + cmd, f"vibe-claude stopped this once: it {en}, and the files are too large (over "
+                           f"{TRASH_MAX // 1_000_000} MB) to keep a copy, so it could not be undone.",
+                           ko if lang == "ko" else en):
+                return
+        return
     if re.search(r"\bgit\b.*\b(checkout|switch|merge|rebase|pull|stash|apply|am)\b|\bsed\s+-i|\bmv\s|\bperl\s+-[a-z]*i", cmd):
         v.snapshot("guard", cmd[:100])
     if v.config["packages"]:

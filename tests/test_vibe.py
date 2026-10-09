@@ -445,12 +445,25 @@ class GuardTests(Project):
                 self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
 
     def test_irreversible_steps_stop_claude_once(self):
-        for cmd in ("git push -f origin main", "git -c core.x=1 push --force", "git clean -fdx",
+        for cmd in ("git push -f origin main", "git -c core.x=1 push --force",
                     "psql -c 'DROP TABLE users'", "supabase db reset", "python manage.py flush",
                     "echo 'DROP TABLE x;' | psql", "sqlite3 app.db 'DELETE FROM users;'", "git branch -D old"):
             reason = self.once(cmd)
             self.assertIn("cannot be undone", reason)
             self.assertIn("will not be asked", reason)
+
+    def test_mixed_commands_keep_files_even_when_claude_goes_ahead(self):
+        self.write(".gitignore", "shots/\n")
+        self.write("shots/a.png", "img")
+        self.once("rm -rf shots && git branch -D old")
+        self.assertIn("rm -rf shots", self.cli("trash").stdout)
+
+    def test_git_clean_with_ignored_files_keeps_a_copy(self):
+        subprocess.run(["git", "-C", str(self.dir), "init", "-q"], check=True)
+        self.write(".gitignore", "*.log\n")
+        self.write("debug.log", "trace")
+        self.assertIsNone(self.pre("Bash", command="git clean -fdx"))
+        self.assertIn("git clean -fdx", self.cli("trash").stdout)
 
     def test_a_retry_counts_only_within_the_same_request(self):
         self.once("git push -f origin main")
@@ -496,7 +509,7 @@ class GuardTests(Project):
 
     def test_deleting_a_project_test_stops_claude_once(self):
         self.write("tests/test_login.py", "def test_a():\n    assert True\n")
-        self.assertIn("Deleting tests", self.once("rm tests/test_login.py"))
+        self.assertIn("deleting tests to get a pass", self.once("rm tests/test_login.py"))
 
     def test_weakening_a_test_stops_claude_once(self):
         test = "def test_a():\n    assert add(1, 2) == 3\n    assert add(0, 0) == 0\n"
