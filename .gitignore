@@ -3,47 +3,6 @@
 credentials.json
 *.credentials*
 
-# History/Cache
-history.jsonl
-cache/
-paste-cache/
-image-cache/
-statsig/
-stats-cache.json
-
-# Session/Temp
-session-env/
-shell-snapshots/
-transcripts/
-todos/
-debug/
-file-history/
-
-# Project session data
-projects/
-
-# Backups
-*.bak
-.backup-*/
-
-# Plugins (separate management)
-plugins/
-
-# Local settings
-settings.local.json
-
-# Update logs
-.vibe-update.log
-.vibe-silent-update.json
-
-# Plans (local work)
-plans/
-
-# Personal work data
-.vibe/work-*.md
-.vibe/phase*-detail.md
-lessons-learned.md
-
 # Promotional materials (keep separate)
 promo/
 PROMO.md
@@ -53,3 +12,6 @@ PROMO.md
 .env.*.local
 .env
 PROJECT_PORTS.md
+
+# Python
+__pycache__/

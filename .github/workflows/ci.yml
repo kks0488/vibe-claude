@@ -12,12 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Validate JSON
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Version numbers agree
         run: |
-          python3 -m json.tool .claude-plugin/plugin.json >/dev/null
-          python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
-          python3 -m json.tool hooks/hooks.json >/dev/null
-      - name: Check shell syntax
-        run: bash -n hooks/*.sh tests/*.sh
-      - name: Test hooks
-        run: bash tests/hooks.bats.sh
+          v=$(cat VERSION)
+          p=$(python -c "import json; print('v' + json.load(open('.claude-plugin/plugin.json'))['version'])")
+          s=$(python -c "import re; print('v' + re.search(r'VERSION = \"([^\"]+)\"', open('hooks/vibe.py').read()).group(1))")
+          echo "VERSION=$v plugin.json=$p vibe.py=$s"
+          test "$v" = "$p" && test "$v" = "$s"
+      - name: Validate plugin
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate --strict .
+          claude plugin validate --strict .claude-plugin/plugin.json

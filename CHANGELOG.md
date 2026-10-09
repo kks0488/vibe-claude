@@ -1,5 +1,27 @@
 # Changelog
 
+## v6.0.0 — 2026-10-09
+
+v6 is built for people who don't read code. Proof is now based on what actually ran, not on what the model wrote.
+
+### Added
+
+- **Evidence log and proof gate**: every check command and its real exit code is recorded in `.vibe/ledger.jsonl`. After a code change, Claude can't finish until a check passes after the last edit. Piped (`| tail`) or swallowed (`|| true`) results are judged by the tool's own output.
+- **Regression ratchet**: checks that passed before are re-run at the end of a change.
+- **Codex second opinion**: if `codex` is installed and logged in, it reviews each verified change read-only in the background and wakes Claude when it finds problems (`asyncRewake`). Without Codex this step is skipped.
+- **Receipt**: a one-line `systemMessage` built from the log, never from the model.
+- **Guard**: plain-language confirmation for destructive commands (works in bypass mode), refusal of catastrophic deletes, test-weakening detection, non-existent and brand-new package detection, and secret detection.
+- **Snapshots and `/vibe-claude:undo`**: a private shadow git repository in `.vibe/` saves the project at every request and before risky commands, including non-git projects. Undo can itself be undone.
+- Syntax checks for TypeScript (via the project's own `typescript`), TOML, and notebooks. `MultiEdit` and `NotebookEdit` are now covered.
+- Rules are injected at `SessionStart`, because plugins don't load `CLAUDE.md`.
+
+### Changed
+
+- Replaced `stop-guard.sh` and `post-edit.sh` with one Python script, `hooks/vibe.py`.
+- The Stop gate no longer pattern-matches words like "done" in the final message, which caused false blocks (for example "abandoned").
+- README rewritten around what the plugin does; the v1–v5 story moved to `docs/HISTORY.md`.
+- CI runs the unit tests and `claude plugin validate --strict`, and checks that version numbers match.
+
 ## v5.1.0 — 2026-08-14
 
 This release turns the lessons from several months of day-to-day use into tested behavior.
