@@ -23,7 +23,7 @@ If you can't read code, you can't tell when the AI says "done" but nothing works
 | **Test guard** | Before a test file is edited | Removing checks, adding `skip`, or adding always-true checks asks you first. This is how AI "passes" tests without fixing anything. |
 | **Package check** | Before `npm`/`pip`/`cargo` installs | Packages that don't exist are blocked (AI often invents names, and attackers register them). Packages less than 14 days old ask first. |
 | **Secret check** | Before a file is written | Real-looking API keys going into code are blocked. `.env` files are allowed. |
-| **Undo** | At every request and before every risky command | Your files are snapshotted into a private `.vibe/` folder, git or not. Say `/vibe-claude:undo` (or "go back to before the login change") to restore. |
+| **Undo** | At every request and before every risky command | Your files are snapshotted into a private git store in `~/.vibe-claude/`, outside the project, so even `git clean` can't delete the backups, and it works whether or not the project uses git. Say `/vibe-claude:undo` (or "go back to before the login change") to restore. Ignored files, files over 5 MB, databases and online services are not included, and the confirmation question says so when that matters. |
 | **Syntax check** | After every edit | Python, JS, TS (when the project has TypeScript), JSON, YAML, TOML, shell, notebooks. |
 
 When nothing is wrong you see nothing except the receipt. Claude gets five short rules at session start, and longer messages only when something is blocked.
@@ -43,7 +43,7 @@ For local development: `claude --plugin-dir ./vibe-claude`.
 
 ## Settings
 
-Optional `.vibe/config.json` in your project:
+Optional `.vibe/config.json` in your project (or `config.json` in the project's folder under `~/.vibe-claude/projects/`):
 
 ```json
 { "codex": "auto", "ratchet": true, "snapshots": true, "packages": true, "lang": null }
@@ -51,7 +51,7 @@ Optional `.vibe/config.json` in your project:
 
 `"codex": "off"` turns off the second opinion. `lang` is `"en"` or `"ko"`; by default it follows the language you write in.
 
-`python3 <plugin>/hooks/vibe.py status` shows what is active, and `vibe.py checks` lists the checks the ratchet remembers (`checks forget "<cmd>"` removes one).
+`python3 <plugin>/hooks/vibe.py status` shows what is active and where the state is kept, and `vibe.py checks` lists the checks the ratchet remembers (`checks forget "<cmd>"` removes one).
 
 ## What it deliberately doesn't do
 

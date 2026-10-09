@@ -3,6 +3,8 @@
 
 One script, called by hooks/hooks.json as `vibe.py <event>`, plus a small CLI
 (`vibe.py undo|checks|status`) used by the undo skill. Standard library only.
+State lives outside the project in ~/.vibe-claude (override: VIBE_HOME), so a
+cloned repository cannot plant commands and `git clean` cannot delete backups.
 Every hook fails open: an internal error never blocks the user's work.
 """
 
@@ -14,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -21,7 +24,10 @@ from pathlib import Path
 
 VERSION = "6.0.0"
 DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": True, "lang": None}
-DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock", "log"}
+DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock",
+           "log", "snap", "map"}
+MAX_FILE = 5_000_000      # files bigger than this are not snapshotted
+KEEP_SNAPSHOTS = 150      # older snapshots are pruned
 SHADOW_EXCLUDES = """node_modules/
 .venv/
 venv/
@@ -39,33 +45,33 @@ target/
 coverage/
 *.log
 .DS_Store
-.vibe/
 .git/
 """
+SECRET_FILES = re.compile(r"(^|/)\.env(\.[\w.-]+)?$|\.(pem|key|p12|pfx)$|(^|/)(id_rsa|id_ed25519)[^/]*$")
 
-# --------------------------------------------------------------------------- text
+# --------------------------------------------------------------------------- text shown to the user
 
 MSG = {
     "receipt_ok": ("vibe ✓ {n} file(s) changed · checked: {checks}{codex} · undo: /vibe-claude:undo",
                    "vibe ✓ 파일 {n}개 변경 · 확인됨: {checks}{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_none": ("vibe ⚠ {n} file(s) changed · nothing was run to check it · undo: /vibe-claude:undo",
-                     "vibe ⚠ 파일 {n}개 변경 · 실행해서 확인한 기록이 없어요 · 되돌리기: /vibe-claude:undo"),
-    "receipt_fail": ("vibe ✗ {n} file(s) changed · last check failed: {cmd} · undo: /vibe-claude:undo",
-                     "vibe ✗ 파일 {n}개 변경 · 마지막 검사 실패: {cmd} · 되돌리기: /vibe-claude:undo"),
+    "receipt_none": ("vibe ⚠ {n} file(s) changed · NOT verified: nothing was run to check it{codex} · undo: /vibe-claude:undo",
+                     "vibe ⚠ 파일 {n}개 변경 · 확인 안 됨: 실행해서 확인한 기록이 없어요{codex} · 되돌리기: /vibe-claude:undo"),
+    "receipt_fail": ("vibe ✗ {n} file(s) changed · check FAILED: {cmd} · undo: /vibe-claude:undo",
+                     "vibe ✗ 파일 {n}개 변경 · 검사 실패: {cmd} · 되돌리기: /vibe-claude:undo"),
     "codex_wait": (" · Codex review running", " · Codex 검토 중"),
     "ask_head": ("⚠ Hard to undo: {what}.", "⚠ 되돌리기 어려운 명령이에요: {what}."),
     "ask_files": ("A backup of your files was saved just now (/vibe-claude:undo).",
                   "방금 파일 백업을 만들어 뒀어요(/vibe-claude:undo로 되돌릴 수 있어요)."),
-    "ask_nofiles": ("A file backup cannot bring this back.", "파일 백업으로는 되돌릴 수 없어요."),
+    "ask_nofiles": ("The file backup cannot bring this back.", "파일 백업으로는 되돌릴 수 없어요."),
     "ask_tail": ("Allow only if you asked for this.", "직접 요청한 일일 때만 허락하세요."),
     "tests_weak": ("⚠ Claude wants to weaken a test ({detail}) in {path}. Tests are what prove the app works. "
                    "Allow only if Claude explained why the test itself is wrong.",
                    "⚠ Claude가 테스트를 약하게 바꾸려고 해요({detail}) — {path}. 테스트는 앱이 제대로 되는지 증명하는 장치예요. "
                    "테스트 자체가 틀렸다는 설명을 들었을 때만 허락하세요."),
-    "pkg_new": ("⚠ The package '{name}' is very new ({days} days old) or rarely used. "
-                "Fake look-alike packages often look like this. Allow only if you trust it.",
-                "⚠ '{name}' 패키지는 생긴 지 {days}일밖에 안 됐거나 거의 쓰이지 않아요. "
-                "가짜 패키지가 이런 모습인 경우가 많아요. 믿을 수 있을 때만 허락하세요."),
+    "pkg_new": ("⚠ The package '{name}' is very new ({days} days old). Fake look-alike packages often look like this. "
+                "Allow only if you trust it.",
+                "⚠ '{name}' 패키지는 생긴 지 {days}일밖에 안 됐어요. 가짜 패키지가 이런 모습인 경우가 많아요. "
+                "믿을 수 있을 때만 허락하세요."),
 }
 
 
@@ -79,7 +85,8 @@ def t(key, lang, **kw):
 
 def read_input():
     try:
-        return json.loads(sys.stdin.read() or "{}")
+        data = json.loads(sys.stdin.read() or "{}")
+        return data if isinstance(data, dict) else {}
     except (ValueError, OSError):
         return {}
 
@@ -99,24 +106,27 @@ def run(args, cwd=None, env=None, timeout=30, input_text=None):
         return 127, "", str(e)
 
 
+def inside(path, root):
+    try:
+        return os.path.commonpath([os.path.realpath(path), os.path.realpath(root)]) == os.path.realpath(root)
+    except ValueError:
+        return False
+
+
 class Vibe:
     def __init__(self, data):
         self.data = data
         root = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or os.getcwd()
         self.root = Path(root).resolve()
-        self.dir = self.root / ".vibe"
         # Never keep state for a home folder or filesystem root: too big to snapshot.
         self.enabled = self.root.is_dir() and self.root not in (Path.home().resolve(), Path("/"))
-        self.sid = data.get("session_id", "")
-        self.pid = data.get("prompt_id", "")
+        home = Path(os.environ.get("VIBE_HOME") or Path.home() / ".vibe-claude")
+        slug = re.sub(r"[^\w.-]", "_", self.root.name)[:40]
+        self.dir = home / "projects" / f"{slug}-{hashlib.sha1(str(self.root).encode()).hexdigest()[:10]}"
+        self.sid = str(data.get("session_id", ""))
+        self.pid = str(data.get("prompt_id", ""))
 
     # ---- files
-    def ensure(self):
-        self.dir.mkdir(exist_ok=True)
-        ignore = self.dir / ".gitignore"
-        if not ignore.exists():
-            ignore.write_text("*\n")
-
     def load(self, name, default):
         try:
             return json.loads((self.dir / name).read_text())
@@ -124,8 +134,8 @@ class Vibe:
             return default
 
     def save(self, name, value):
-        self.ensure()
-        tmp = self.dir / (name + ".tmp")
+        self.dir.mkdir(parents=True, exist_ok=True)
+        tmp = self.dir / f"{name}.{os.getpid()}.tmp"
         tmp.write_text(json.dumps(value, ensure_ascii=False, indent=1))
         tmp.replace(self.dir / name)
 
@@ -133,6 +143,11 @@ class Vibe:
     def config(self):
         cfg = dict(DEFAULTS)
         cfg.update(self.load("config.json", {}))
+        try:
+            project = json.loads((self.root / ".vibe" / "config.json").read_text())
+            cfg.update({k: v for k, v in project.items() if k in DEFAULTS})
+        except (OSError, ValueError, AttributeError):
+            pass
         return cfg
 
     @property
@@ -150,7 +165,7 @@ class Vibe:
     def log(self, **entry):
         if not self.enabled:
             return
-        self.ensure()
+        self.dir.mkdir(parents=True, exist_ok=True)
         entry.update(t=time.time(), sid=self.sid, pid=self.pid)
         path = self.dir / "ledger.jsonl"
         with path.open("a") as f:
@@ -182,28 +197,50 @@ class Vibe:
                 out.append(e)
         return out
 
-    # ---- shadow snapshots (a private git repo in .vibe/, never the user's .git)
+    # ---- shadow snapshots: a private git repository outside the project, never the user's .git
     def git(self, *args, index=None, timeout=60, input_text=None):
         env = dict(os.environ, GIT_DIR=str(self.dir / "shadow.git"), GIT_WORK_TREE=str(self.root),
                    GIT_INDEX_FILE=str(index or self.dir / "shadow.git" / "index"),
                    GIT_AUTHOR_NAME="vibe", GIT_AUTHOR_EMAIL="vibe@localhost",
                    GIT_COMMITTER_NAME="vibe", GIT_COMMITTER_EMAIL="vibe@localhost")
-        env.pop("GIT_OBJECT_DIRECTORY", None)
+        for k in ("GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE"):
+            env.pop(k, None)
         return run(["git", *args], cwd=self.root, env=env, timeout=timeout, input_text=input_text)
 
+    def snapshots_on(self):
+        st = self.load("state.json", {})
+        return (self.enabled and self.config["snapshots"] and shutil.which("git")
+                and time.time() > st.get("snap_paused_until", 0))
+
     def snapshot(self, kind, label=""):
-        if not (self.enabled and self.config["snapshots"] and shutil.which("git")):
+        """Save the project's files; return the snapshot id, or None when no backup was made."""
+        if not self.snapshots_on():
             return None
-        self.ensure()
         repo = self.dir / "shadow.git"
         if not repo.exists():
+            self.dir.mkdir(parents=True, exist_ok=True)
             if run(["git", "init", "-q", "--bare", str(repo)])[0]:
                 return None
-            run(["git", "--git-dir", str(repo), "config", "core.bare", "false"])
-            run(["git", "--git-dir", str(repo), "config", "gc.auto", "0"])
+            for key, value in (("core.bare", "false"), ("gc.auto", "0"), ("core.autocrlf", "false"),
+                               ("core.quotepath", "false")):
+                run(["git", "--git-dir", str(repo), "config", key, value])
             (repo / "info").mkdir(exist_ok=True)
             (repo / "info" / "exclude").write_text(SHADOW_EXCLUDES)
-        if self.git("add", "-A", ".", timeout=40)[0]:
+        # Skip very large files so backups stay small and fast.
+        _, out, _ = self.git("ls-files", "-z", "--others", "--modified", "--exclude-standard", timeout=30)
+        big = []
+        for rel in filter(None, out.split("\0")):
+            try:
+                if (self.root / rel).stat().st_size > MAX_FILE:
+                    big.append("/" + rel.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?"))
+            except OSError:
+                pass
+        (repo / "info" / "exclude").write_text(SHADOW_EXCLUDES + "\n".join(big) + "\n")
+        started = time.time()
+        rc, _, _ = self.git("add", "-A", ".", timeout=40)
+        if rc == 124 or time.time() - started > 20:  # too slow for this project: pause for a day
+            self.state_update(snap_paused_until=time.time() + 86400)
+        if rc:
             return None
         rc, tree, _ = self.git("write-tree")
         if rc:
@@ -216,13 +253,29 @@ class Vibe:
             if head_tree.strip() == tree and kind not in ("turn", "undo"):
                 return head
         meta = json.dumps({"t": time.time(), "kind": kind, "label": label[:120]}, ensure_ascii=False)
-        args = ["commit-tree", tree, "-m", meta] + (["-p", head] if head else [])
-        rc, commit, _ = self.git(*args)
+        rc, commit, _ = self.git(*(["commit-tree", tree, "-m", meta] + (["-p", head] if head else [])))
         if rc:
             return None
         commit = commit.strip()
         self.git("update-ref", "refs/heads/snaps", commit)
         return commit
+
+    def prune(self):
+        """Keep the newest KEEP_SNAPSHOTS snapshots and drop the rest from disk."""
+        rc, count, _ = self.git("rev-list", "--count", "refs/heads/snaps")
+        if rc or int(count.strip() or 0) <= KEEP_SNAPSHOTS * 2:
+            return
+        rc, out, _ = self.git("log", "-n", str(KEEP_SNAPSHOTS), "--format=%T%x00%s", "refs/heads/snaps")
+        parent = ""
+        for line in reversed(out.splitlines()):
+            tree, _, meta = line.partition("\0")
+            rc, commit, _ = self.git(*(["commit-tree", tree, "-m", meta] + (["-p", parent] if parent else [])))
+            if rc:
+                return
+            parent = commit.strip()
+        self.git("update-ref", "refs/heads/snaps", parent)
+        self.git("reflog", "expire", "--expire=now", "--all")
+        self.git("gc", "-q", "--prune=now", timeout=300)
 
     def snapshots(self, limit=20):
         rc, out, _ = self.git("log", "-n", str(limit), "--format=%H %s", "refs/heads/snaps")
@@ -239,15 +292,49 @@ class Vibe:
             snaps.append(info)
         return snaps
 
+    def resolve(self, snap_id):
+        if not re.fullmatch(r"[0-9a-f]{6,40}", snap_id or ""):
+            return None
+        rc, sha, _ = self.git("rev-parse", "-q", "--verify", snap_id + "^{commit}")
+        sha = sha.strip()
+        if rc or self.git("merge-base", "--is-ancestor", sha, "refs/heads/snaps")[0]:
+            return None
+        return sha
+
     def files_in(self, ref):
         rc, out, _ = self.git("ls-tree", "-r", "-z", "--name-only", ref)
         return set(filter(None, out.split("\0"))) if rc == 0 else set()
 
+    def changed(self, before, after):
+        """[(status, path)] between two snapshots, excluding nothing."""
+        rc, out, _ = self.git("diff", "--name-status", "-z", "--no-renames", before, after)
+        parts = out.split("\0") if rc == 0 else []
+        return [(parts[i], parts[i + 1]) for i in range(0, len(parts) - 1, 2) if parts[i]]
+
     def restore(self, sha):
-        before = self.snapshot("undo", "before undo to " + sha[:8])
+        target = self.files_in(sha)
+        before = self.snapshot("undo", "before undo to " + sha[:10])
         if not before:
-            return False, "could not snapshot current state"
-        extra = self.files_in(before) - self.files_in(sha)
+            return False, "could not back up the current files first, so nothing was changed"
+        current = self.files_in(before)
+        extra = current - target
+        problems = []
+        for rel in target | extra:
+            parts = Path(rel).parts
+            p = self.root
+            for i, part in enumerate(parts[:-1]):
+                p = p / part
+                prefix = "/".join(parts[:i + 1])
+                if p.is_symlink() or (p.exists() and not p.is_dir() and prefix not in current):
+                    problems.append(rel)
+                    break
+            else:
+                full = self.root / rel
+                if rel in target and full.is_dir() and not full.is_symlink():
+                    problems.append(rel)  # a folder now sits where a file goes; it may hold unsaved files
+        if problems:
+            return False, ("stopped without changing anything: these paths changed shape since then and restoring "
+                           "could delete files that have no backup: " + ", ".join(sorted(problems)[:5]))
         index = self.dir / "restore.index"
         try:
             if self.git("read-tree", sha, index=index)[0]:
@@ -259,67 +346,238 @@ class Vibe:
             index.unlink(missing_ok=True)
         for rel in extra:
             p = self.root / rel
-            if p.is_file() or p.is_symlink():
+            if (p.is_file() or p.is_symlink()) and inside(p.parent, self.root):
                 p.unlink()
         return True, before
 
 
-# --------------------------------------------------------------------------- classification
+# --------------------------------------------------------------------------- reading shell commands
 
-VERIFY = [
-    ("test", r"\b(pytest|py\.test|nose2|tox|nox|vitest|jest|mocha|jasmine|karma|rspec|phpunit|bats|ctest)\b"
-             r"|\bpython3?\s+-m\s+(pytest|unittest)\b|\b(cypress\s+run|playwright\s+test)\b"
-             r"|\b(npm|pnpm|yarn|bun)\s+(run\s+)?test\b|\b(deno|go|cargo|swift|dotnet|mix|flutter|dart)\s+test\b"
-             r"|\bmvn\b.*\b(test|verify)\b|\bgradlew?\b.*\b(test|check)\b|\bxcodebuild\b.*\btest\b"
-             r"|\bmake\s+(test|check)\b|\b(bash|sh|python3?|node)\s+(\./)?tests?/[\w./-]*\.(sh|py|js)\b"),
-    ("type", r"\b(tsc|mypy|pyright|basedpyright)\b|\b(npm|pnpm|yarn|bun)\s+(run\s+)?(typecheck|type-check|check-types)\b"
-             r"|\bcargo\s+check\b|\bgo\s+vet\b"),
-    ("lint", r"\b(eslint|ruff|flake8|pylint|shellcheck|golangci-lint|biome|stylelint|rubocop|swiftlint|clippy)\b"
-             r"|\b(npm|pnpm|yarn|bun)\s+(run\s+)?lint\b|\bprettier\b.*--check|\bbash\s+-n\b|\bclaude\s+plugin\s+validate\b"),
-    ("build", r"\b(npm|pnpm|yarn|bun)\s+(run\s+)?build\b|\b(cargo|go|swift|dotnet|zig)\s+build\b|\bxcodebuild\b"
-              r"|\b(vite|next|nuxt|astro|webpack|esbuild|turbo)\s+build\b|\bgradlew?\b.*\b(build|assemble)\b"
-              r"|\bmvn\b.*\b(package|install|compile)\b|(^|[;&]\s*)make(\s|$)"),
-    ("run", r"\b(curl|wget|http)\b.*\b(localhost|127\.0\.0\.1|0\.0\.0\.0)\b"),
-]
+OPERATORS = {"&&", "||", ";", "|", "&", "|&", ";;"}
+REDIRECTS = re.compile(r"^[0-9]*(>>?|<<?<?|>&|<&|&>>?|>\|)$")
+WRAPPERS = {"sudo", "doas", "env", "nohup", "time", "command", "exec", "nice", "timeout", "caffeinate", "xargs", "builtin"}
+WRAPPER_ARGS = {"sudo": {"-u", "-g", "-h", "-p", "-C", "-D", "-r", "-t", "-U"}, "env": {"-u", "-C", "-S"},
+                "nice": {"-n"}, "xargs": {"-I", "-n", "-P", "-L", "-d", "-s", "-E"}, "timeout": {"-s", "-k"}}
+
+
+def segments(cmd):
+    """Split a shell command into [(operator_before, tokens)], dropping redirections."""
+    lex = shlex.shlex(cmd.replace("\n", " ; "), posix=True, punctuation_chars=";&|<>()")
+    lex.whitespace_split = True
+    try:
+        toks = list(lex)
+    except ValueError:
+        toks = cmd.split()
+    segs, cur, op, skip = [], [], "", False
+    for i, tk in enumerate(toks):
+        if skip:
+            skip = False
+            continue
+        if tk in OPERATORS:
+            if cur:
+                segs.append((op, cur))
+            cur, op = [], tk
+        elif tk in ("(", ")", "{", "}"):
+            continue
+        elif REDIRECTS.match(tk):
+            if cur and cur[-1].isdigit():
+                cur.pop()
+            skip = True
+        else:
+            cur.append(tk)
+    if cur:
+        segs.append((op, cur))
+    elif op in ("&", "|", "||", "&&"):  # trailing operator, e.g. `pytest &` runs in the background
+        segs.append((op, []))
+    return segs
+
+
+def unwrap(toks):
+    """Drop env assignments and wrappers (sudo, env, npx, uv run, python -m ...) to find the real program."""
+    toks = list(toks)
+    while toks:
+        name = os.path.basename(toks[0])
+        if re.match(r"^[A-Za-z_]\w*=", toks[0]):
+            toks.pop(0)
+        elif name in WRAPPERS:
+            toks.pop(0)
+            while toks and (toks[0].startswith("-") or (name == "env" and re.match(r"^[A-Za-z_]\w*=", toks[0]))):
+                opt = toks.pop(0)
+                if opt in WRAPPER_ARGS.get(name, ()) and toks:
+                    toks.pop(0)
+            if name == "timeout" and toks:
+                toks.pop(0)
+        elif name in ("npx", "bunx"):
+            toks.pop(0)
+            while toks and toks[0].startswith("-"):
+                if toks.pop(0) in ("-p", "--package") and toks:
+                    toks.pop(0)
+        elif name in ("pnpm", "yarn") and len(toks) > 1 and toks[1] in ("dlx", "exec"):
+            toks = toks[2:]
+        elif name in ("uv", "poetry", "pipenv", "pdm", "hatch", "rye") and len(toks) > 1 and toks[1] == "run":
+            toks = toks[2:]
+            while toks and toks[0].startswith("-"):
+                toks.pop(0)
+        elif re.match(r"^python[\d.]*$", name) and len(toks) > 2 and toks[1] == "-m":
+            toks = toks[2:]
+        else:
+            break
+    return toks
+
+
+TEST_PROGS = {"pytest", "py.test", "unittest", "nose2", "tox", "nox", "vitest", "jest", "mocha", "jasmine", "karma",
+              "rspec", "phpunit", "pest", "bats", "ctest", "ava", "tap"}
+TYPE_PROGS = {"tsc", "vue-tsc", "mypy", "pyright", "basedpyright"}
+LINT_PROGS = {"eslint", "ruff", "flake8", "pylint", "shellcheck", "golangci-lint", "biome", "stylelint", "rubocop",
+              "swiftlint", "oxlint", "hadolint"}
+FORMAT_CHECK = {"prettier", "black", "gofmt", "rustfmt"}
+LANG_TOOLS = {"go", "cargo", "swift", "dotnet", "deno", "mix", "flutter", "dart", "zig"}
+BUILD_TOOLS = {"vite", "next", "nuxt", "astro", "turbo", "webpack", "esbuild", "rollup", "tsup", "parcel"}
 RUNNERS = {"python", "python3", "node", "bun", "deno", "ruby", "php", "tsx", "ts-node", "bash", "sh", "zsh", "perl"}
-LONG_RUNNING = re.compile(r"--watch\b|\b(dev|serve|start|watch)\b")
-PIPE = re.compile(r"(?<!\|)\|(?!\|)")
-SWALLOW = re.compile(r"\|\|\s*(true|:|exit\s+0)\b|;\s*(true|exit\s+0)\s*$")
+LONG_RUNNING = {"dev", "start", "serve", "watch", "preview"}
+INFO_FLAGS = {"--help", "-h", "--version", "-V", "--list", "--collect-only", "--co", "--dry-run", "--listTests"}
 
 
-def classify(cmd, root=None):
-    for kind, pattern in VERIFY:
-        if re.search(pattern, cmd):
-            return kind
-    if root:  # running a project file directly counts as a smoke run
-        for segment in re.split(r"&&|;|\n", cmd):
-            try:
-                toks = shlex.split(segment)
-            except ValueError:
-                continue
-            if len(toks) >= 2 and os.path.basename(toks[0]) in RUNNERS:
-                arg = next((x for x in toks[1:] if not x.startswith("-")), "")
-                if "-c" not in toks and "-e" not in toks and arg and (Path(root) / arg).is_file():
-                    return "run"
+def script_kind(name):
+    name = name.lower()
+    if any(w in name for w in LONG_RUNNING):
+        return None
+    if re.search(r"test|spec|e2e", name):
+        return "test"
+    if re.search(r"type|tsc", name):
+        return "type"
+    if "lint" in name or name in ("check", "validate"):
+        return "lint"
+    if "build" in name or name == "compile":
+        return "build"
     return None
 
 
-def masked(cmd):
-    """True when the exit code cannot be trusted (piped into tail/grep, or errors swallowed)."""
-    if SWALLOW.search(cmd):
-        return True
-    segments = PIPE.split(cmd)
-    return len(segments) > 1 and "pipefail" not in cmd and not classify(segments[-1])
+def verifier(toks, root=None):
+    """Return the kind of check a single command is ('test', 'type', 'lint', 'build', 'run') or None."""
+    toks = unwrap(toks)
+    if not toks or any(a in INFO_FLAGS or a.startswith("--watch") for a in toks[1:]):
+        return None
+    prog, args = os.path.basename(toks[0]), toks[1:]
+    sub = args[0] if args else ""
+    if prog in TEST_PROGS:
+        return "test"
+    if prog in TYPE_PROGS:
+        return "type"
+    if prog in LINT_PROGS:
+        return None if prog == "ruff" and sub == "format" and "--check" not in args else "lint"
+    if prog in FORMAT_CHECK:
+        return "lint" if "--check" in args or "-l" in args else None
+    if prog in ("npm", "pnpm", "yarn", "bun"):
+        if sub in ("test", "t", "tst"):
+            return "test"
+        if sub == "run" and len(args) > 1:
+            return script_kind(args[1])
+        if prog != "npm" and sub and not sub.startswith("-") and sub not in ("install", "add", "i", "remove", "x"):
+            return script_kind(sub)
+        return None
+    if prog in LANG_TOOLS:
+        return {"test": "test", "build": "build", "check": "type", "vet": "type", "clippy": "lint",
+                "lint": "lint"}.get(sub)
+    if prog in ("make", "gmake"):
+        if sub in ("test", "check", "tests"):
+            return "test"
+        return "build" if not sub or sub in ("all", "build") else None
+    if prog in ("mvn", "mvnw", "./mvnw"):
+        return "test" if {"test", "verify"} & set(args) else ("build" if {"package", "install", "compile"} & set(args) else None)
+    if prog in ("gradle", "gradlew"):
+        return "test" if {"test", "check"} & set(args) else ("build" if {"build", "assemble"} & set(args) else None)
+    if prog == "xcodebuild":
+        return "test" if "test" in args else "build"
+    if prog == "playwright" and sub == "test" or prog == "cypress" and sub == "run":
+        return "test"
+    if prog in BUILD_TOOLS and (sub == "build" or prog in ("webpack", "esbuild", "rollup", "tsup", "parcel")):
+        return "build"
+    if prog == "claude" and args[:2] == ["plugin", "validate"]:
+        return "lint"
+    if prog in ("curl", "wget", "http", "xh") and any(re.search(r"(localhost|127\.0\.0\.1|0\.0\.0\.0)", a) for a in args):
+        return "run"
+    if prog in RUNNERS:
+        if "-n" in args and prog in ("bash", "sh", "zsh"):
+            return "lint"
+        inline = next((args[i + 1] for i, a in enumerate(args[:-1]) if a in ("-c", "-e", "--eval", "-p")), None)
+        if inline is not None:  # inline code counts only when it actually loads project code
+            return "run" if root and loads_project_code(inline, root) else None
+        if "-" in args:
+            return None
+        target = next((a for a in args if not a.startswith("-")), "")
+        if target and root and (Path(root) / target).is_file():
+            return "test" if re.search(r"(^|/)tests?/|(^|/)test_|_test\.|\.test\.", target) else "run"
+    return None
 
 
-MISSING_TOOL = re.compile(r"No module named \S+$|command not found|ENOENT|Cannot find module|Missing script:"
-                          r"|is not recognized as|not installed", re.M)
-FAIL_OUT = re.compile(r"\b\d+ (failed|errors?)\b|\bFAILED\b|\bFAIL\b|npm ERR!|\bTraceback\b|\berror(\[\w+\])?:|✗|\bfailing\b")
-PASS_OUT = re.compile(r"\b\d+ passed\b|^OK\b|[Aa]ll (tests|checks) passed|\b0 (failures|errors)\b|✓|\b\d+ passing\b|\bsucceeded\b", re.M)
+def loads_project_code(code, root):
+    names = re.findall(r"(?:^|[;\s(])(?:from|import)\s+([A-Za-z_][\w.]*)", code)
+    names += [m.lstrip("./") for m in re.findall(r"(?:require\(|import\(|from\s+)['\"](\.{1,2}/[^'\"]+)['\"]", code)]
+    for name in names:
+        base = Path(root) / name.replace(".", "/") if "/" not in name else Path(root) / name
+        candidates = [base] + [base.with_name(base.name + ext) for ext in (".py", ".js", ".mjs", ".cjs", ".ts")]
+        if base.is_dir() and (base / "__init__.py").exists() or any(c.is_file() for c in candidates):
+            return True
+    return False
+
+
+def suggest_checks(root):
+    """Check commands this project already has, to point Claude at the real tests."""
+    root, out = Path(root), []
+    try:
+        scripts = json.loads((root / "package.json").read_text()).get("scripts", {})
+        out += [f"npm run {k}" if k != "test" else "npm test" for k in ("test", "build", "typecheck", "lint") if k in scripts]
+    except (OSError, ValueError, AttributeError):
+        pass
+    if list(root.glob("tests/test_*.py")) + list(root.glob("test_*.py")) + list(root.glob("tests/**/test_*.py")):
+        out.append("python3 -m pytest (or: python3 -m unittest discover -s tests)")
+    for marker, cmd in (("Cargo.toml", "cargo test"), ("go.mod", "go test ./..."), ("Package.swift", "swift test")):
+        if (root / marker).exists():
+            out.append(cmd)
+    try:
+        if re.search(r"^test:", (root / "Makefile").read_text(), re.M):
+            out.append("make test")
+    except OSError:
+        pass
+    return out[:3]
+
+
+def checks_in(cmd, root=None, base=None):
+    """Find checks in a command. Returns [{kind, prog, pos, trusted, argv, cwd}].
+
+    `trusted` means the command's exit code really reflects that check: everything after it is joined
+    with `&&` (or `|` under `set -o pipefail`), so a 0 exit means the check passed.
+    """
+    segs = segments(cmd)
+    found, pipefail, cwd = [], False, None
+    for i, (op, toks) in enumerate(segs):
+        if not toks:
+            continue
+        if toks[0] == "set" and "pipefail" in toks:
+            pipefail = not any(x.startswith("+") for x in toks)
+            continue
+        if toks[0] == "cd" and len(toks) > 1 and op in ("", "&&"):
+            cwd = os.path.join(cwd or str(base or root or "."), os.path.expanduser(toks[1]))
+            continue
+        kind = verifier(toks, root)
+        if not kind:
+            continue
+        after = [o for o, _ in segs[i + 1:]]
+        if i + 1 < len(segs) and segs[i + 1][0] == "|" and not pipefail:
+            trusted = False
+        else:
+            trusted = all(o == "&&" or (o == "|" and pipefail) for o in after)
+        real = unwrap(toks)
+        found.append({"kind": kind, "prog": os.path.basename(real[0]), "trusted": trusted,
+                      "pos": sorted(a for a in real[1:] if not a.startswith("-")),
+                      "argv": toks, "cwd": cwd, "simple": len(segs) == 1 or (len(segs) == 2 and cwd is not None)})
+    return found
 
 
 def is_code(path):
-    return path.rsplit(".", 1)[-1].lower() not in DOC_EXT if "." in os.path.basename(path) else True
+    base = os.path.basename(path)
+    return base.rsplit(".", 1)[-1].lower() not in DOC_EXT if "." in base else True
 
 
 TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec|specs)/|(^|/)test_[^/]+\.py$|_test\.(py|go)$"
@@ -344,101 +602,191 @@ def weakening(old, new):
 
 # --------------------------------------------------------------------------- guard rules
 
-#   (pattern, english effect, korean effect, files-backup-helps)
+DB_CLIENTS = {"psql", "mysql", "mariadb", "sqlite3", "sqlcmd", "mongosh", "mongo", "duckdb", "clickhouse-client",
+              "cockroach", "supabase", "turso", "wrangler", "prisma"}
+#   (programs or None for any, pattern on the command's own words, english, korean, file backup helps)
 DANGER = [
-    (r"\bgit\s+reset\b[^;&|]*--hard", "throws away all unsaved code changes", "저장하지 않은 코드 변경이 전부 사라져요", True),
-    (r"\bgit\s+clean\b[^;&|]*\s-\w*f", "deletes every file git does not track", "git이 관리하지 않는 파일을 전부 지워요", True),
-    (r"\bgit\s+(checkout|restore)\s+(--\s+)?\.(\s|$)|\bgit\s+checkout\s+-f\b",
-     "throws away unsaved changes in every file", "모든 파일의 저장 안 된 변경을 버려요", True),
-    (r"\bgit\s+push\b[^;&|]*(\s--force\b|\s-f\b|--force-with-lease|\s\+\S)",
-     "overwrites the online copy of the project history", "온라인에 있는 프로젝트 기록을 덮어써요", False),
-    (r"\bgit\s+branch\b[^;&|]*\s-D\b", "deletes a branch even if its work was never merged",
-     "합쳐지지 않은 작업이 있어도 브랜치를 지워요", False),
-    (r"\bgit\s+stash\s+(drop|clear)\b", "deletes saved-aside work", "따로 보관해 둔 작업을 지워요", False),
-    (r"\bgit\s+(filter-branch|filter-repo)\b", "rewrites the whole project history", "프로젝트 기록 전체를 다시 써요", False),
-    (r"(?i)\b(drop\s+(table|database|schema|collection)|truncate\s+(table\s+)?\w+)",
+    (DB_CLIENTS | {"echo", "cat", "printf"}, r"(?i)\b(drop\s+(table|database|schema|collection)|truncate\s+(table\s+)?\w+)",
      "deletes a database table and its data", "데이터베이스 표와 그 안의 데이터를 지워요", False),
-    (r"(?i)\bdelete\s+from\s+[\w.\"`\[\]]+\s*(;|$|\"|')", "deletes every row of a database table",
-     "데이터베이스 표의 모든 줄을 지워요", False),
-    (r"(?i)\b(prisma\s+migrate\s+reset|supabase\s+db\s+reset|rails\s+db:(drop|reset)|rake\s+db:(drop|reset)|dropdb"
-     r"|flushall|flushdb|manage\.py\s+flush)\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
-    (r"\bfind\b[^;&|]*(\s-delete\b|-exec\s+rm\b)", "deletes every file that matches a search", "검색에 걸린 파일을 전부 지워요", True),
-    (r"\b(mkfs\S*|diskutil\s+(erase\w*|partition\w*))\b|\bdd\b[^;&|]*\bof=/dev/", "erases a whole disk",
-     "디스크 전체를 지워요", False),
-    (r"\bdocker\s+(system|volume)\s+prune\b|\bdocker\s+volume\s+rm\b|\bdocker[- ]compose\b[^;&|]*\bdown\b[^;&|]*\s-v\b",
+    (DB_CLIENTS | {"echo", "cat", "printf"}, r"(?i)\bdelete\s+from\s+[\w.\"`\[\]]+\s*(;|$)",
+     "deletes every row of a database table", "데이터베이스 표의 모든 줄을 지워요", False),
+    ({"prisma"}, r"\bmigrate\s+reset\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
+    ({"supabase"}, r"\bdb\s+reset\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
+    ({"rails", "rake", "bin/rails"}, r"\bdb:(drop|reset|schema:load)\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
+    ({"dropdb"}, r"", "deletes a whole database", "데이터베이스 전체를 지워요", False),
+    ({"redis-cli"}, r"(?i)\bflush(all|db)\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
+    ({"manage.py"}, r"\bflush\b", "wipes the database", "데이터베이스를 통째로 비워요", False),
+    ({"find"}, r"(\s|^)-delete\b|-exec(dir)?\s+rm\b", "deletes every file that matches a search", "검색에 걸린 파일을 전부 지워요", True),
+    ({"mkfs", "newfs"}, r"", "erases a whole disk", "디스크 전체를 지워요", False),
+    ({"diskutil"}, r"\b(erase\w*|partition\w*|reformat)\b", "erases a whole disk", "디스크 전체를 지워요", False),
+    ({"dd"}, r"\bof=/dev/", "overwrites a disk", "디스크를 덮어써요", False),
+    ({"docker", "podman"}, r"\b(system|volume)\s+prune\b|\bvolume\s+rm\b|\bcompose\b.*\bdown\b.*\s(-v|--volumes)\b",
      "deletes saved container data", "컨테이너에 저장된 데이터를 지워요", False),
-    (r"\b(terraform|tofu)\s+destroy\b|\bkubectl\s+delete\b|\bheroku\s+(apps:destroy|pg:reset)\b"
-     r"|\bgh\s+repo\s+delete\b|\bvercel\s+(rm|remove)\b", "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
-    (r"\bchmod\s+-R\s+0?777\b", "makes every file writable by anyone", "모든 파일을 누구나 고칠 수 있게 바꿔요", True),
+    ({"docker-compose"}, r"\bdown\b.*\s(-v|--volumes)\b", "deletes saved container data", "컨테이너에 저장된 데이터를 지워요", False),
+    ({"terraform", "tofu", "pulumi"}, r"\b(destroy|down)\b", "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
+    ({"kubectl"}, r"\bdelete\b", "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
+    ({"heroku"}, r"\b(apps:destroy|pg:reset)\b", "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
+    ({"gh"}, r"\brepo\s+delete\b", "deletes the online repository", "온라인 저장소를 지워요", False),
+    ({"vercel", "netlify"}, r"\b(rm|remove|delete)\b", "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
+    ({"aws"}, r"\bs3\s+(rm|rb)\b.*--recursive|\bs3\s+rb\b|\b(delete-db|terminate-instances|delete-bucket)\b",
+     "deletes live online resources", "실제로 운영 중인 온라인 자원을 지워요", False),
+    ({"chmod", "chown"}, r"(\s|^)-R\b.*\b0?777\b|(\s|^)-R\s+\S+\s+/(\s|$)", "changes permissions of everything",
+     "모든 파일의 권한을 바꿔요", True),
 ]
+GIT_EFFECTS = {
+    "reset": ("throws away all unsaved code changes", "저장하지 않은 코드 변경이 전부 사라져요", True),
+    "clean": ("deletes every file git does not track", "git이 관리하지 않는 파일을 전부 지워요", True),
+    "discard": ("throws away unsaved changes in every file", "모든 파일의 저장 안 된 변경을 버려요", True),
+    "push": ("overwrites the online copy of the project history", "온라인에 있는 프로젝트 기록을 덮어써요", False),
+    "branch": ("deletes a branch even if its work was never merged", "합쳐지지 않은 작업이 있어도 브랜치를 지워요", False),
+    "stash": ("deletes saved-aside work", "따로 보관해 둔 작업을 지워요", False),
+    "rewrite": ("rewrites the whole project history", "프로젝트 기록 전체를 다시 써요", False),
+}
 REGENERABLE = {"node_modules", "dist", "build", "out", ".next", ".nuxt", ".turbo", "coverage", "__pycache__",
-               ".pytest_cache", ".mypy_cache", ".ruff_cache", "target", ".cache", ".parcel-cache", ".vite", "tmp"}
+               ".pytest_cache", ".mypy_cache", ".ruff_cache", "target", ".cache", ".parcel-cache", ".vite"}
+TEMP_ROOTS = [os.path.realpath(p) for p in (os.environ.get("VIBE_TEMP_ROOTS", "").split(os.pathsep) if
+              os.environ.get("VIBE_TEMP_ROOTS") else {"/tmp", "/private/tmp", "/var/folders", tempfile.gettempdir()})
+              if os.path.isdir(p)]
+
+
+def git_danger(args):
+    """args: words after `git` (global options already removed). Return a GIT_EFFECTS key or None."""
+    sub, rest = (args[0], args[1:]) if args else ("", [])
+    flags = [a for a in rest if a.startswith("-")]
+    short = "".join(a[1:] for a in flags if not a.startswith("--"))
+    if sub == "reset" and "--hard" in rest:
+        return "reset"
+    if sub == "clean" and ("f" in short or "--force" in rest) and not ("n" in short or "--dry-run" in rest):
+        return "clean"
+    if sub in ("checkout", "restore") and "--staged" not in rest and ("." in rest or "-f" in rest or "--force" in rest
+                                                                      or ":/" in rest):
+        return "discard"
+    if sub == "push" and ("f" in short or "--force" in rest or any(a.startswith("--force") for a in rest)
+                          or any(a.startswith("+") for a in rest if not a.startswith("-"))):
+        return "push"
+    if sub == "branch" and ("D" in short or ("--delete" in rest and "--force" in rest)):
+        return "branch"
+    if sub == "stash" and rest[:1] in (["drop"], ["clear"]):
+        return "stash"
+    if sub in ("filter-branch", "filter-repo"):
+        return "rewrite"
+    return None
+
+
+def strip_git_globals(args):
+    out = list(args)
+    while out and out[0].startswith("-"):
+        opt = out.pop(0)
+        if opt in ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path") and out:
+            out.pop(0)
+    return out
+
+
+def rm_verdict(toks, root):
+    """Return ('deny'|'ask'|None, english, korean, targets) for one rm-like command."""
+    home = os.path.realpath(str(Path.home()))
+    flags = "".join(x.lstrip("-") for x in toks[1:] if x.startswith("-") and x != "--")
+    recursive = "r" in flags.lower() or "recursive" in flags
+    targets = [x for x in toks[1:] if not x.startswith("-")]
+    if not targets:
+        return "ask", "deletes the files listed by the previous command", "앞 명령이 찾은 파일들을 지워요", []
+    unsafe = []
+    for target in targets:
+        expanded = os.path.expanduser(target.replace("${HOME}", "~").replace("$HOME", "~"))
+        resolved = os.path.realpath(os.path.join(root, expanded))
+        base = os.path.basename(expanded.rstrip("/"))
+        scope = os.path.realpath(os.path.join(root, os.path.dirname(expanded) or ".")) if base == "*" else resolved
+        if (recursive or base == "*") and (scope in ("/", home) or inside(root, scope)):
+            return "deny", f"deletes everything in {target}", f"{target} 안의 모든 것을 지워요", []
+        if not inside(resolved, root) and any(inside(resolved, tr) and resolved != tr for tr in TEMP_ROOTS):
+            continue
+        if os.path.basename(resolved) in REGENERABLE and inside(resolved, root):
+            continue
+        unsafe.append(target)
+    if recursive and unsafe:
+        return "ask", f"permanently deletes {', '.join(unsafe[:3])} and everything inside", \
+            f"{', '.join(unsafe[:3])} 폴더와 그 안의 모든 것을 영구히 지워요", unsafe
+    tests = [x for x in targets if TEST_PATH.search(x)]
+    if tests:
+        return "ask", f"deletes test file(s) {', '.join(tests[:3])}", f"테스트 파일 {', '.join(tests[:3])}을(를) 지워요", tests
+    if any("*" in x for x in unsafe):
+        return "ask", f"deletes every file matching {', '.join(unsafe[:3])}", \
+            f"{', '.join(unsafe[:3])}에 맞는 파일을 전부 지워요", unsafe
+    return None, "", "", []
+
+
+def danger(cmd, root):
+    """Return (verdict, english, korean, backup_helps, targets) for the riskiest part of a command."""
+    for _, raw in segments(cmd):
+        toks = unwrap(raw)
+        if not toks:
+            continue
+        prog = os.path.basename(toks[0])
+        if prog in RUNNERS and len(toks) > 1 and os.path.basename(toks[1]) == "manage.py":
+            prog, toks = "manage.py", toks[1:]
+        if prog in ("rm", "rmdir", "unlink", "shred", "srm"):
+            verdict, en, ko, targets = rm_verdict(toks, root)
+            if verdict:
+                return verdict, en, ko, True, targets
+        elif prog == "git":
+            key = git_danger(strip_git_globals(toks[1:]))
+            if key:
+                en, ko, helps = GIT_EFFECTS[key]
+                if key == "clean" and any("x" in a.lower() for a in toks if a.startswith("-") and not a.startswith("--")):
+                    helps = False  # -x also deletes ignored files, which are not in the backup
+                return "ask", en, ko, helps, []
+        words = " ".join(toks[1:])
+        for progs, pattern, en, ko, helps in DANGER:
+            if prog in progs:
+                if not pattern or re.search(pattern, words):
+                    return "ask", en, ko, helps, []
+    return None, "", "", False, []
+
+
 SECRETS = [
     (r"\bAKIA[0-9A-Z]{16}\b", "AWS access key"),
     (r"\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{24,}", "OpenAI/Anthropic API key"),
     (r"\bgh[pousr]_[A-Za-z0-9]{36,}\b", "GitHub token"),
+    (r"\bgithub_pat_[A-Za-z0-9_]{40,}", "GitHub token"),
     (r"\bxox[baprs]-[A-Za-z0-9-]{10,}", "Slack token"),
     (r"\b(sk|rk)_live_[A-Za-z0-9]{20,}", "Stripe live key"),
     (r"\bAIza[0-9A-Za-z_-]{35}\b", "Google API key"),
     (r"-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----", "private key"),
     (r"(?i)\bservice_role\b[\"']?\s*[:=]\s*[\"']eyJ[A-Za-z0-9_-]{20,}", "Supabase service-role key"),
 ]
-SECRET_OK_FILES = re.compile(r"(^|/)\.env(\.[\w.-]+)?$|\.(pem|key)$")
 
 
-def split_commands(cmd):
-    for segment in re.split(r"&&|\|\||;|\||\n", cmd):
-        try:
-            toks = shlex.split(segment)
-        except ValueError:
-            toks = segment.split()
-        while toks and (re.match(r"^\w+=", toks[0]) or toks[0] in ("sudo", "command", "exec", "nohup", "time", "xargs")):
-            toks.pop(0)
-        if toks:
-            yield toks
+def redact(text):
+    for pattern, label in SECRETS:
+        text = re.sub(pattern, f"[redacted {label}]", text)
+    return text
 
 
-def rm_verdict(cmd, root):
-    """Return ('deny'|'ask'|None, effect_en, effect_ko) for rm-like commands."""
-    home = str(Path.home())
-    for toks in split_commands(cmd):
-        if os.path.basename(toks[0]) not in ("rm", "rmdir", "unlink"):
-            continue
-        flags = "".join(x.lstrip("-") for x in toks[1:] if x.startswith("-") and x != "--")
-        recursive = "r" in flags.lower() or "recursive" in flags
-        targets = [x for x in toks[1:] if not x.startswith("-")]
-        if not targets:
-            return "ask", "deletes the files listed by the previous command", "앞 명령이 찾은 파일들을 지워요"
-        for target in targets:
-            expanded = os.path.expanduser(target.replace("$HOME", home).replace("${HOME}", home))
-            resolved = os.path.realpath(os.path.join(root, expanded))
-            if resolved in ("/", home, str(root)) or target in ("/*", "~/*", "*", ".", "..", "./*"):
-                if recursive or "*" in target:
-                    return "deny", f"deletes everything in {target}", f"{target} 안의 모든 것을 지워요"
-        unsafe = [x for x in targets if not (os.path.basename(x.rstrip("/")) in REGENERABLE
-                                             or re.match(r"^(/tmp|/private/tmp|/var/folders|\$TMPDIR)", x))]
-        if recursive and unsafe:
-            return "ask", f"permanently deletes {', '.join(unsafe[:3])} and everything inside", \
-                f"{', '.join(unsafe[:3])} 폴더와 그 안의 모든 것을 영구히 지워요"
-        tests = [x for x in targets if TEST_PATH.search(x)]
-        if tests:
-            return "ask", f"deletes test file(s) {', '.join(tests[:3])}", f"테스트 파일 {', '.join(tests[:3])}을(를) 지워요"
-        if any("*" in x for x in unsafe):
-            return "ask", f"deletes every file matching {', '.join(unsafe[:3])}", f"{', '.join(unsafe[:3])}에 맞는 파일을 전부 지워요"
-    return None, "", ""
+VALUE_OPTS = {
+    "npm": {"--registry", "--prefix", "-w", "--workspace", "--tag", "--omit", "--include", "--cache", "--userconfig",
+            "--save-prefix", "-C", "--dir", "--filter", "--cwd"},
+    "pypi": {"-t", "--target", "-i", "--index-url", "--extra-index-url", "-r", "--requirement", "-c", "--constraint",
+             "-e", "--editable", "--prefix", "--root", "--platform", "--python-version", "--implementation", "--abi",
+             "-f", "--find-links", "--src", "--upgrade-strategy", "--progress-bar", "--cache-dir", "--trusted-host",
+             "--proxy", "--timeout", "--retries", "--log", "--report", "--python", "-p", "--group", "--optional",
+             "--extra", "--index", "--default-index", "--source", "-G"},
+    "crates": {"--path", "--git", "--branch", "--tag", "--rev", "--registry", "-p", "--package", "-F", "--features",
+               "--rename", "--target", "--manifest-path"},
+}
+PRIVATE_FLAGS = {"--registry", "-i", "--index-url", "--extra-index-url", "-f", "--find-links", "--index",
+                 "--default-index", "--source", "--git", "--path"}
 
 
 def install_targets(cmd):
-    """Yield (ecosystem, package) for package install commands."""
-    for toks in split_commands(cmd):
-        name = os.path.basename(toks[0])
-        rest = toks[1:]
-        eco = None
+    """Yield (ecosystem, package, private) for package install commands."""
+    for _, raw in segments(cmd):
+        toks = unwrap(raw)
+        if not toks:
+            continue
+        name, rest, eco = os.path.basename(toks[0]), toks[1:], None
         if name in ("npm", "pnpm", "yarn", "bun") and rest and rest[0] in ("i", "install", "add"):
             eco, rest = "npm", rest[1:]
-        elif name in ("pip", "pip3", "uv", "poetry") or (name.startswith("python") and rest[:2] == ["-m", "pip"]):
-            if name.startswith("python"):
-                rest = rest[2:]
+        elif name in ("pip", "pip3", "uv", "poetry", "pdm", "pipenv"):
             if name == "uv" and rest[:1] == ["pip"]:
                 rest = rest[1:]
             if rest and rest[0] in ("install", "add"):
@@ -447,22 +795,48 @@ def install_targets(cmd):
             eco, rest = "crates", rest[1:]
         if not eco:
             continue
-        skip_next = False
+        private = any(a.split("=")[0] in PRIVATE_FLAGS for a in rest)
+        skip = False
         for arg in rest:
-            if skip_next:
-                skip_next = False
+            if skip:
+                skip = False
                 continue
-            if arg in ("-r", "--requirement", "-e", "--editable", "-c", "--constraint", "--index-url", "-i", "--registry"):
-                skip_next = True
+            if arg.startswith("-"):
+                skip = arg in VALUE_OPTS[eco] and "=" not in arg
                 continue
-            if arg.startswith("-") or "/" in arg and not arg.startswith("@") or arg.startswith(".") or ":" in arg:
+            if arg.startswith((".", "/", "~")) or "://" in arg or ":" in arg or ("/" in arg and not arg.startswith("@")):
                 continue
-            if eco == "npm":
-                pkg = re.match(r"^(@[^/@]+/[^@]+|[^@]+)", arg)
-            else:
-                pkg = re.match(r"^[A-Za-z0-9_.-]+", arg)
+            if arg.endswith((".whl", ".tar.gz", ".zip", ".tgz", ".txt")):
+                continue
+            pkg = re.match(r"^(@[^/@\s]+/[^@\s]+|[^@\s]+)", arg) if eco == "npm" else re.match(r"^[A-Za-z0-9_.-]+", arg)
             if pkg:
-                yield eco, pkg.group(1) if eco == "npm" else pkg.group(0)
+                yield eco, pkg.group(1) if eco == "npm" else pkg.group(0), private
+
+
+def private_registry(eco, name, root):
+    """True when the project or user points this ecosystem at a non-public registry."""
+    def has(path, pattern):
+        try:
+            return re.search(pattern, Path(path).expanduser().read_text(errors="replace"), re.M) is not None
+        except OSError:
+            return False
+    if eco == "npm":
+        scope = name.split("/")[0] if name.startswith("@") else ""
+        if os.environ.get("NPM_CONFIG_REGISTRY") or os.environ.get("npm_config_registry"):
+            return True
+        pat = r"^\s*registry\s*=" + (f"|^\\s*{re.escape(scope)}:registry\\s*=" if scope else "")
+        return any(has(p, pat) for p in (Path(root) / ".npmrc", "~/.npmrc", Path(root) / ".yarnrc.yml"))
+    if eco == "pypi":
+        if any(os.environ.get(k) for k in ("PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL", "UV_INDEX_URL", "UV_INDEX",
+                                           "UV_EXTRA_INDEX_URL", "UV_DEFAULT_INDEX")):
+            return True
+        return any(has(p, r"index-url|^\s*\[\[tool\.(uv\.index|poetry\.source|pdm\.source)\]\]|^\s*\[\[source\]\]")
+                   for p in (Path(root) / "pyproject.toml", Path(root) / "pip.conf", Path(root) / "Pipfile",
+                             "~/.config/pip/pip.conf", "~/.pip/pip.conf", "~/Library/Application Support/pip/pip.conf",
+                             "~/.config/uv/uv.toml"))
+    if eco == "crates":
+        return any(has(p, r"^\s*\[(registries|source)") for p in (Path(root) / ".cargo/config.toml", "~/.cargo/config.toml"))
+    return False
 
 
 def package_info(eco, name):
@@ -498,7 +872,7 @@ def package_info(eco, name):
 # --------------------------------------------------------------------------- events
 
 RULES = """vibe-claude is active. The user may not read code, so:
-1. Prove it, don't claim it. A hook records every command and its exit code. After you change code, run a real check (tests, build, or the program itself) after the last edit, without piping it into tail/grep or adding `|| true`, before you say it is done.
+1. Prove it, don't claim it. A hook records every command and its real exit code. After you change files, run a real check (tests, build, or the program itself) after the last change, on its own or joined with `&&` (not followed by `;`, `||` or a pipe), before you say it is done.
 2. Report in plain words: what changed for the user, how they can see it themselves (a URL, a command, or where to click), and what might break. No diffs or code unless asked.
 3. Same error twice: change the approach instead of retrying.
 4. Change only what was asked. Never weaken, skip or delete tests to make them pass; fix the code.
@@ -514,30 +888,34 @@ def on_prompt(v):
         return
     prompt = str(v.data.get("prompt", ""))
     lang = "ko" if re.search(r"[가-힣]", prompt) else ("en" if re.search(r"[A-Za-z]{3}", prompt) else None)
+    snap = v.snapshot("turn", prompt.strip().splitlines()[0][:100] if prompt.strip() else "")
     st = v.load("state.json", {})
     if lang:
         st["lang"] = lang
-    snap = v.snapshot("turn", prompt.strip().splitlines()[0][:100] if prompt.strip() else "")
     turns = st.get("turns", {})
     turns[v.pid or v.sid] = {"snap": snap, "prompt": prompt[:600], "t": time.time()}
     st["turns"] = dict(list(turns.items())[-20:])
     st["codex_rounds"] = 0
     v.save("state.json", st)
     v.log(ev="turn")
+    if snap and int(hashlib.sha1(snap.encode()).hexdigest(), 16) % 40 == 0:
+        v.prune()
 
 
 def new_content(tool, inp, old):
     if tool == "Write":
-        return inp.get("content", "")
+        return str(inp.get("content", ""))
     if tool == "Edit":
         edits = [inp]
     elif tool == "MultiEdit":
-        edits = inp.get("edits", [])
+        edits = inp.get("edits", []) or []
+    elif tool == "NotebookEdit":
+        return str(inp.get("new_source", ""))
     else:
         return None
     text = old
     for e in edits:
-        a, b = e.get("old_string", ""), e.get("new_string", "")
+        a, b = str(e.get("old_string", "")), str(e.get("new_string", ""))
         text = text.replace(a, b) if e.get("replace_all") else text.replace(a, b, 1)
     return text
 
@@ -558,7 +936,7 @@ def on_pre_tool(v):
     lang = v.lang
     if tool == "Bash":
         return pre_bash(v, str(inp.get("command", "")), lang)
-    path = inp.get("file_path") or inp.get("notebook_path") or ""
+    path = str(inp.get("file_path") or inp.get("notebook_path") or "")
     if not path:
         return
     try:
@@ -568,45 +946,55 @@ def on_pre_tool(v):
     new = new_content(tool, inp, old)
     if new is None:
         return
-    rel = os.path.relpath(path, v.root) if path.startswith(str(v.root)) else path
-    if not SECRET_OK_FILES.search(path):
+    rel = os.path.relpath(path, v.root) if inside(path, v.root) else path
+    if not SECRET_FILES.search(path):
         for pattern, label in SECRETS:
             if re.search(pattern, new) and not re.search(pattern, old):
                 return deny(f"vibe-claude blocked this edit: it would write a real-looking {label} into {rel}. "
                             "Secrets in code leak when the project is shared or deployed. Read it from an "
                             "environment variable and keep the value in a .env file that is git-ignored, then tell "
                             "the user in plain words where to paste their key.")
-    if old and TEST_PATH.search(rel):
+    if old and tool != "NotebookEdit" and TEST_PATH.search(rel):
         detail = weakening(old, new)
         if detail:
             return ask(t("tests_weak", lang, detail=detail, path=rel))
 
 
+def backed_up(v, targets):
+    """True when every target path is inside the snapshot scope (not ignored, not too big)."""
+    for target in targets:
+        path = os.path.realpath(os.path.join(v.root, os.path.expanduser(target)))
+        if not inside(path, v.root):
+            return False
+        rel = os.path.relpath(path, v.root)
+        if v.git("check-ignore", "-q", "--no-index", rel)[0] == 0:
+            return False
+    return True
+
+
 def pre_bash(v, cmd, lang):
-    verdict, en, ko = rm_verdict(cmd, v.root)
-    files_help = True
-    if not verdict:
-        for pattern, d_en, d_ko, helps in DANGER:
-            if re.search(pattern, cmd):
-                verdict, en, ko, files_help = "ask", d_en, d_ko, helps
-                break
+    verdict, en, ko, helps, targets = danger(cmd, v.root)
+    if verdict == "deny":
+        return deny(f"vibe-claude blocked a catastrophic command ({en}). Do not try to work around this. "
+                    "Explain to the user in plain words what you wanted to do and find a narrower command.")
     if verdict:
-        v.snapshot("guard", cmd[:100])
+        snap = v.snapshot("guard", cmd[:100]) if helps else None
+        saved = bool(snap) and backed_up(v, targets)
         what = ko if lang == "ko" else en
-        if verdict == "deny":
-            return deny(f"vibe-claude blocked a catastrophic command ({en}). Do not try to work around this. "
-                        "Explain to the user in plain words what you wanted to do and find a narrower command.")
-        tail = t("ask_files" if files_help else "ask_nofiles", lang)
+        tail = t("ask_files" if saved else "ask_nofiles", lang)
         return ask(f"{t('ask_head', lang, what=what)}\n{tail} {t('ask_tail', lang)}\n$ {cmd[:300]}")
-    if re.search(r"\bgit\s+(checkout|switch|merge|rebase|pull|stash|apply|am)\b|\bsed\s+-i|\bmv\s", cmd):
+    if re.search(r"\bgit\b.*\b(checkout|switch|merge|rebase|pull|stash|apply|am)\b|\bsed\s+-i|\bmv\s|\bperl\s+-[a-z]*i", cmd):
         v.snapshot("guard", cmd[:100])
     if v.config["packages"]:
-        for eco, name in list(install_targets(cmd))[:8]:
+        for eco, name, private in list(install_targets(cmd))[:8]:
+            if private or private_registry(eco, name, v.root):
+                continue  # never send private package names to a public registry
             exists, age = package_info(eco, name)
             if exists is False:
-                return deny(f"vibe-claude blocked install: the {eco} package '{name}' does not exist. AI models often "
-                            "invent package names, and attackers register those names with malware. Find the real "
-                            "package name from official documentation before installing anything.")
+                return deny(f"vibe-claude blocked install: the {eco} package '{name}' does not exist on the public "
+                            "registry. AI models often invent package names, and attackers register those names with "
+                            "malware. Find the real package name in official documentation. If it lives in a private "
+                            "registry, pass that registry explicitly (for example --registry or --index-url).")
             if exists and age is not None and age < 14:
                 return ask(t("pkg_new", lang, name=name, days=age))
 
@@ -622,7 +1010,7 @@ def check_syntax(path, root):
         return run([py, "-c", "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))", path])
     if ext in ("yaml", "yml"):
         return run([py, "-c", "import sys\ntry:\n import yaml\nexcept ImportError:\n sys.exit(0)\n"
-                    "yaml.safe_load(open(sys.argv[1],encoding='utf-8'))", path])
+                    "list(yaml.safe_load_all(open(sys.argv[1],encoding='utf-8')))", path])
     if ext in ("sh", "bash"):
         return run(["bash", "-n", path])
     if ext in ("js", "mjs", "cjs") and shutil.which("node"):
@@ -653,68 +1041,98 @@ def check_syntax(path, root):
     return 0, "", ""
 
 
+def tool_missing(prog, out, code):
+    """The checker itself is not installed (no evidence either way), as opposed to the project failing."""
+    if code == 127:
+        return True
+    p = re.escape(prog)
+    return bool(re.search(rf"No module named '?{p}'?\s*$|\b{p}: (command )?not found|command not found: {p}\b"
+                          rf"|Missing script: \"?{p}|npm (ERR!|error) Missing script", out[-2000:], re.M))
+
+
 def on_post_tool(v, failed=False):
     tool = v.data.get("tool_name", "")
     inp = v.data.get("tool_input", {}) or {}
     if tool == "Bash":
         cmd = str(inp.get("command", ""))
-        kind = classify(cmd, v.root)
-        if not kind or not v.enabled:
+        found = checks_in(cmd, v.root, v.data.get("cwd"))
+        if not found or not v.enabled or inp.get("run_in_background"):
             return
+        resp = v.data.get("tool_response", {}) or {}
         if failed:
             if v.data.get("is_interrupt"):
                 return
-            m = re.match(r"Exit code (\d+)", str(v.data.get("error", "")))
+            err = str(v.data.get("error", ""))
+            m = re.match(r"Exit code (\d+)", err)
             code = int(m.group(1)) if m else 1
-            out = str(v.data.get("error", ""))
-            if code == 127 or MISSING_TOOL.search(out[-2000:]):
-                return  # the checker is not installed: no evidence either way
-        elif inp.get("run_in_background"):
+            if len(found) == 1 and tool_missing(found[0]["prog"], err, code):
+                return
+            last = found[-1]
+            v.log(ev="run", cmd=cmd[:500], kind=last["kind"], prog=last["prog"], pos=last["pos"], exit=code, ok=False)
             return
-        else:
-            resp = v.data.get("tool_response", {}) or {}
-            code = 0
-            out = str(resp.get("stdout", "")) + str(resp.get("stderr", ""))
-        hidden = masked(cmd)
-        ok = code == 0 and not hidden
-        if hidden and code == 0:  # trust the tool's own output, never the model's words
-            tail = out[-3000:]
-            ok = bool(PASS_OUT.search(tail)) and not FAIL_OUT.search(tail)
-            code = 0 if ok else ("?" if FAIL_OUT.search(tail) else None)
-        v.log(ev="run", cmd=cmd[:500], kind=kind, exit=code, ok=ok, masked=hidden, cwd=v.data.get("cwd", ""))
-        if ok and not hidden and kind in ("test", "type", "lint", "build") and not LONG_RUNNING.search(cmd) \
-                and len(cmd) < 300 and v.config["ratchet"]:
-            green = [g for g in v.load("green.json", []) if g.get("cmd") != cmd]
-            green.append({"cmd": cmd, "cwd": v.data.get("cwd") or str(v.root), "kind": kind, "t": time.time()})
-            v.save("green.json", green[-5:])
+        if isinstance(resp, dict) and resp.get("interrupted"):
+            return
+        for c in found:
+            v.log(ev="run", cmd=cmd[:500], kind=c["kind"], prog=c["prog"], pos=c["pos"],
+                  exit=0 if c["trusted"] else None, ok=c["trusted"])
+            if c["trusted"] and c["simple"] and c["kind"] in ("test", "type", "lint", "build") and v.config["ratchet"]:
+                argv = c["argv"]
+                if not re.match(r"^[A-Za-z_]\w*=", argv[0]) and not any(re.search(r"[`$]", a) for a in argv):
+                    cwd = os.path.realpath(c["cwd"] or v.data.get("cwd") or str(v.root))
+                    if inside(cwd, v.root):
+                        green = [g for g in v.load("green.json", []) if g.get("argv") != argv or g.get("cwd") != cwd]
+                        green.append({"argv": argv, "cwd": cwd, "kind": c["kind"], "prog": c["prog"],
+                                      "pos": c["pos"], "t": time.time()})
+                        v.save("green.json", green[-5:])
+        if any(c["trusted"] for c in found):
             v.snapshot("good", cmd[:100])
         return
-    path = inp.get("file_path") or inp.get("notebook_path") or ""
+    path = str(inp.get("file_path") or inp.get("notebook_path") or "")
     if not path or not os.path.isfile(path):
         return
-    if v.enabled and str(Path(path).resolve()).startswith(str(v.root) + os.sep):
-        v.log(ev="edit", path=os.path.relpath(Path(path).resolve(), v.root), code=is_code(path))
+    if v.enabled and inside(path, v.root):
+        v.log(ev="edit", path=os.path.relpath(os.path.realpath(path), v.root), code=is_code(path))
     rc, out, err = check_syntax(path, v.root)
     if rc and rc not in (124, 127):
         emit({"decision": "block", "reason": f"Syntax check failed for {path}:\n{(err or out)[:4000]}"})
 
 
-def proof(v):
-    """Summarize the current request: edited files and the evidence after the last edit."""
+def supersedes(newer, older):
+    """A later run of the same check replaces an earlier one unless it is narrower (adds new targets)."""
+    return (newer.get("kind") == older.get("kind") and newer.get("prog") == older.get("prog")
+            and set(newer.get("pos", [])) <= set(older.get("pos", [])))
+
+
+def proof(v, snapshot=True):
+    """What changed in this request, and the evidence gathered after the last change."""
     turn = v.turn()
-    edits = [e for e in turn if e.get("ev") == "edit" and e.get("code")]
-    if not edits:
+    st = v.load("state.json", {})
+    info = st.get("turns", {}).get(v.pid or v.sid, {})
+    edits = {e["path"]: e["t"] for e in turn if e.get("ev") == "edit"}
+    files = None
+    if snapshot and info.get("snap"):
+        now = v.snapshot("check", "end of request")
+        if now:
+            files = sorted(p for _, p in v.changed(info["snap"], now) if is_code(p))
+    if files is None:  # no snapshots: fall back to what the edit tools reported
+        files = sorted(p for p in edits if is_code(p))
+    if not files:
         return None
-    last_edit = max(e["t"] for e in edits)
-    runs = [e for e in turn if e.get("ev") == "run" and e["t"] >= last_edit]
-    files = sorted({e["path"] for e in edits})
-    latest = {}
+    # Edits made with Write/Edit have exact times; changes made by shell commands only need a check in this request.
+    last_change = max([edits[p] for p in files if p in edits] or [info.get("t", 0)])
+    runs = sorted((e for e in turn if e.get("ev") == "run" and e["t"] >= last_change), key=lambda e: e["t"])
+    passed, failed, unclear = [], [], []
     for r in runs:
-        latest[r["cmd"]] = r
-    passed = [r for r in latest.values() if r.get("ok")]
-    failed = [r for r in latest.values() if r.get("exit") not in (0, None)]
-    unclear = [r for r in latest.values() if r.get("exit") is None]
-    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear, "last_edit": last_edit}
+        if r.get("ok"):
+            failed = [f for f in failed if not supersedes(r, f)]
+            unclear = [u for u in unclear if not supersedes(r, u)]
+            passed.append(r)
+        elif r.get("exit") is None:
+            unclear.append(r)
+        else:
+            passed = [p for p in passed if not supersedes(r, p)]
+            failed.append(r)
+    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear}
 
 
 def short(cmd):
@@ -723,51 +1141,64 @@ def short(cmd):
 
 
 def ratchet(v, p):
-    """Re-run checks that passed before but were not re-run since the last edit."""
-    done = {r["cmd"] for r in p["passed"]} | {r["cmd"] for r in p["failed"]}
+    """Re-run remembered checks (single commands that passed before) that were not run since the last change."""
     budget = time.time() + 240
     for g in v.load("green.json", []):
-        if g["cmd"] in done or time.time() > budget:
+        argv, cwd = g.get("argv"), g.get("cwd")
+        if not argv or not isinstance(argv, list) or time.time() > budget:
             continue
-        cwd = g.get("cwd") if g.get("cwd") and os.path.isdir(g["cwd"]) else str(v.root)
-        rc, out, err = run(["bash", "-c", g["cmd"]], cwd=cwd, timeout=max(10, min(120, budget - time.time())))
-        if rc == 124:
+        if any(supersedes(r, g) for r in p["passed"] + p["failed"]):
             continue
-        v.log(ev="run", cmd=g["cmd"], kind=g["kind"], exit=rc, ok=rc == 0, masked=False, cwd=cwd, ratchet=True)
+        if not cwd or not os.path.isdir(cwd) or not inside(cwd, v.root) or verifier(argv, v.root) != g.get("kind"):
+            continue
+        rc, out, err = run(argv, cwd=cwd, timeout=max(10, min(120, budget - time.time())))
+        if rc in (124, 127):
+            continue
+        cmd = shlex.join(argv)
+        v.log(ev="run", cmd=cmd, kind=g["kind"], prog=g.get("prog"), pos=g.get("pos", []), exit=rc, ok=rc == 0,
+              ratchet=True)
         if rc:
-            return g["cmd"], (out + err)[-1500:]
+            return cmd, (out + err)[-1500:]
     return None
 
 
-HOW_TO_SEE = re.compile(r"https?://|localhost|`[^`]+`|확인|열어|실행|눌러|클릭|접속|들어가|\b(open|run|visit|click|try|check|go to)\b",
-                        re.I)
+HOW_TO_SEE = re.compile(r"https?://|localhost|`[^`]+`|확인|열어|실행|눌러|클릭|접속|들어가|새로고침"
+                        r"|\b(open|run|visit|click|try|check|go to|reload|refresh)\b", re.I)
+
+
+def stop_id(d):
+    raw = json.dumps([d.get("session_id"), d.get("prompt_id"), d.get("last_assistant_message"),
+                      bool(d.get("stop_hook_active"))], ensure_ascii=False)
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
 def on_stop(v):
     if not v.enabled:
         return
     d = v.data
-    active = bool(d.get("stop_hook_active"))
-    if d.get("background_tasks"):
-        return
+    sid = stop_id(d)
+    waiting = bool(d.get("background_tasks"))
     p = proof(v)
     if not p:
-        v.state_update(stop={"pid": v.pid, "decision": "allow", "t": time.time()})
+        v.state_update(stop={"id": sid, "decision": "nochange"})
         return
     reason = None
-    if not active:
+    # Block once per stop sequence. After that, or while background work runs, end honestly with the receipt.
+    if not d.get("stop_hook_active") and not waiting:
         if p["failed"]:
             r = p["failed"][-1]
-            reason = (f"The last check failed after your final edit: `{r['cmd']}` (exit {r['exit']}). Fix the problem "
+            reason = (f"The last check failed after your final change: `{r['cmd']}` (exit {r['exit']}). Fix the problem "
                       "and re-run it. If you cannot fix it, tell the user plainly that it still fails and why.")
         elif not p["passed"]:
             if p["unclear"]:
-                reason = (f"Your check `{p['unclear'][-1]['cmd']}` hid its real result (a pipe or `|| true` replaces "
-                          "the exit code). Re-run it without the pipe, or with `set -o pipefail;` in front.")
+                reason = (f"Your check `{p['unclear'][-1]['cmd']}` hid its real result: something after it (`;`, `||`, "
+                          "or a pipe without `set -o pipefail`) decides the exit code. Re-run the check on its own.")
             else:
+                hints = suggest_checks(v.root)
                 reason = ("You changed code (" + ", ".join(p["files"][:5]) + ") but nothing was run to check it after "
-                          "your last edit. Run the tests, the build, or the program itself now and report the real "
-                          "result. If no check is possible, tell the user plainly what is not verified.")
+                          "your last change. Run the tests, the build, or the program itself now and report the real "
+                          "result." + (" This project has: " + "; ".join(hints) + "." if hints else "") +
+                          " If no check is possible, tell the user plainly what is not verified.")
         elif v.config["ratchet"]:
             broken = ratchet(v, p)
             if broken:
@@ -775,23 +1206,23 @@ def on_stop(v):
                 reason = (f"Regression: `{cmd}` passed earlier in this project and fails now.\n{out}\nFix what broke "
                           "it. If that check is obsolete, remove it with: python3 "
                           f"\"{Path(__file__).resolve()}\" checks forget \"{cmd}\"")
-        if not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message", ""))):
+        if not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
             reason = ("Before finishing, tell the user in plain words how they can see the result themselves: a URL "
                       "to open, a command to run, or where to click. They cannot read the code.")
     if reason:
-        v.state_update(stop={"pid": v.pid, "decision": "block", "t": time.time()})
+        v.state_update(stop={"id": sid, "decision": "block"})
         return emit({"decision": "block", "reason": reason})
-    p = proof(v) or p
+    p = proof(v, snapshot=False) or p
     lang, n = v.lang, len(p["files"])
-    codex = t("codex_wait", lang) if codex_ready(v) else ""
+    codex = t("codex_wait", lang) if not waiting and not p["failed"] and codex_ready(v) else ""
     if p["failed"]:
         msg = t("receipt_fail", lang, n=n, cmd=short(p["failed"][-1]["cmd"]))
     elif p["passed"]:
         checks = ", ".join(dict.fromkeys(short(r["cmd"]) for r in p["passed"]))
         msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
     else:
-        msg = t("receipt_none", lang, n=n)
-    v.state_update(stop={"pid": v.pid, "decision": "allow", "t": time.time()})
+        msg = t("receipt_none", lang, n=n, codex=codex)
+    v.state_update(stop={"id": sid, "decision": "allow" if p["passed"] and not p["failed"] else "unverified"})
     emit({"systemMessage": msg})
 
 
@@ -806,7 +1237,7 @@ Otherwise reply with at most 5 lines: `- path:line — problem — why it matter
 User request:
 {prompt}
 
-Change (unified diff):
+Change (unified diff; secret files are left out and secret-looking values are redacted):
 {diff}
 """
 
@@ -821,15 +1252,16 @@ def on_codex(v):
     """Async Stop hook (asyncRewake): exit 2 wakes Claude with the reviewer's findings."""
     if not v.enabled or v.data.get("background_tasks"):
         return 0
-    started = time.time()
-    while time.time() - started < 300:  # wait for the synchronous Stop hook's verdict
+    sid, started = stop_id(v.data), time.time()
+    wait = float(os.environ.get("VIBE_STOP_WAIT", "300"))
+    while time.time() - started < wait:  # wait for this exact Stop's verdict from the synchronous hook
         st = v.load("state.json", {}).get("stop", {})
-        if st.get("pid") == v.pid and st.get("t", 0) >= started - 5:
+        if st.get("id") == sid:
             break
-        time.sleep(1)
+        time.sleep(0.5)
     else:
         return 0
-    if st.get("decision") != "allow" or not proof(v) or not codex_ready(v):
+    if st.get("decision") not in ("allow", "unverified") or not codex_ready(v):
         return 0
     state = v.load("state.json", {})
     if state.get("codex_rounds", 0) >= 2:
@@ -838,27 +1270,32 @@ def on_codex(v):
     before, after = turn.get("snap"), v.snapshot("review", "after change")
     if not before or not after:
         return 0
-    _, diff, _ = v.git("diff", "--no-color", before, after, "--", ".")
+    excludes = [":(exclude,glob)**/.env", ":(exclude,glob)**/.env.*", ":(exclude,glob)**/*.pem",
+                ":(exclude,glob)**/*.key", ":(exclude,glob)**/*.p12", ":(exclude,glob)**/id_rsa*"]
+    _, diff, _ = v.git("diff", "--no-color", before, after, "--", ".", *excludes)
     if not diff.strip():
         return 0
     digest = hashlib.sha1(diff.encode()).hexdigest()
     if digest in state.get("reviewed", []):
         return 0
+    diff = redact(diff)
     if len(diff) > 80_000:
         diff = diff[:80_000] + "\n[diff truncated; read the changed files directly]"
-    v.state_update(codex_rounds=state.get("codex_rounds", 0) + 1,
-                   reviewed=(state.get("reviewed", []) + [digest])[-50:])
+    v.state_update(codex_rounds=state.get("codex_rounds", 0) + 1)
     out_dir = v.dir / "reviews"
-    out_dir.mkdir(exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / time.strftime("%Y%m%d-%H%M%S.md")
-    prompt = REVIEW_PROMPT.format(prompt=turn.get("prompt", "(unknown)"), diff=diff)
+    prompt = REVIEW_PROMPT.format(prompt=redact(turn.get("prompt", "(unknown)")), diff=diff)
     rc, _, err = run(["codex", "exec", "-s", "read-only", "--skip-git-repo-check", "--ephemeral",
                       "-C", str(v.root), "-o", str(out_file), "-"], input_text=prompt, timeout=840)
     try:
         verdict = out_file.read_text().strip()
     except OSError:
         verdict = ""
-    if rc or not verdict or re.match(r"^\W*LGTM\b", verdict):
+    if rc or not verdict:
+        return 0  # not marked as reviewed, so the next stop tries again
+    v.state_update(reviewed=(v.load("state.json", {}).get("reviewed", []) + [digest])[-50:])
+    if re.match(r"^\W*LGTM\b", verdict):
         return 0
     sys.stderr.write(
         "[vibe-claude] An independent reviewer (OpenAI Codex, a different model) checked the change you just "
@@ -876,6 +1313,10 @@ def ago(ts):
     return f"{s // 60}m ago" if s < 3600 else (f"{s // 3600}h ago" if s < 86400 else time.strftime("%m-%d %H:%M", time.localtime(ts)))
 
 
+KINDS = {"turn": "before request", "guard": "before risky command", "good": "checks passed",
+         "undo": "before an undo", "review": "after change", "check": "end of request"}
+
+
 def cli(argv):
     v = Vibe({"cwd": os.getcwd()})
     cmd = argv[0] if argv else "status"
@@ -883,45 +1324,44 @@ def cli(argv):
         sub = argv[1] if len(argv) > 1 else "list"
         if sub == "list":
             current = v.snapshot("now", "current state")
-            snaps = [(i, s) for i, s in enumerate(v.snapshots(40)) if s["kind"] != "now"][:15]
+            snaps = [s for s in v.snapshots(60) if s["kind"] in ("turn", "guard", "good", "undo")][:15]
             if not current or not snaps:
-                print("No snapshots yet.")
+                print("No snapshots yet." if v.snapshots_on() else "Snapshots are off or unavailable here.")
                 return 0
-            kinds = {"turn": "before request", "guard": "before risky command", "good": "checks passed",
-                     "undo": "before an undo", "review": "after change"}
-            for i, s in snaps:
+            print("id          when          kind                   label  [difference from now]")
+            for s in snaps:
                 _, stat, _ = v.git("diff", "--shortstat", s["sha"], current)
-                print(f"{i:>2}. {ago(s['t']):>12}  {kinds.get(s['kind'], s['kind']):<21} {s['label'][:70]!r}  "
-                      f"[differs from now: {stat.strip() or 'no'}]")
+                print(f"{s['sha'][:10]}  {ago(s['t']):>12}  {KINDS.get(s['kind'], s['kind']):<21}  "
+                      f"{s['label'][:70]!r}  [{stat.strip() or 'same as now'}]")
             return 0
-        if sub in ("show", "restore") and len(argv) > 2 and argv[2].isdigit():
-            snaps = v.snapshots(int(argv[2]) + 1)
-            if int(argv[2]) >= len(snaps):
-                print("No such snapshot.", file=sys.stderr)
+        if sub in ("show", "restore") and len(argv) > 2:
+            target = v.resolve(argv[2])
+            if not target:
+                print("No such snapshot id. Run `undo list` and copy an id from the first column.", file=sys.stderr)
                 return 1
-            target = snaps[int(argv[2])]["sha"]
             if sub == "show":
                 current = v.snapshot("now", "current state")
                 print(v.git("diff", "--stat", target, current)[1] or "No differences.")
                 return 0
             ok, info = v.restore(target)
-            print("Restored. The state just before this undo was saved as a new snapshot (run list to see it)."
-                  if ok else f"Failed: {info}")
+            print(f"Restored. The files from just before this undo were saved as snapshot {info[:10]}; restore that id "
+                  "to undo the undo." if ok else f"Not restored: {info}")
             return 0 if ok else 1
     if cmd == "checks":
         green = v.load("green.json", [])
         if len(argv) > 2 and argv[1] == "forget":
-            v.save("green.json", [g for g in green if g["cmd"] != argv[2]])
+            v.save("green.json", [g for g in green if shlex.join(g.get("argv", [])) != argv[2]])
             print("Forgotten.")
         else:
-            print("\n".join(g["cmd"] for g in green) or "No remembered checks.")
+            print("\n".join(shlex.join(g["argv"]) for g in green if g.get("argv")) or "No remembered checks.")
         return 0
     if cmd == "status":
-        print(json.dumps({"version": VERSION, "project": str(v.root), "enabled": v.enabled, "config": v.config,
-                          "codex": codex_ready(v), "snapshots": len(v.snapshots(1000)),
-                          "checks": [g["cmd"] for g in v.load("green.json", [])]}, indent=1, ensure_ascii=False))
+        print(json.dumps({"version": VERSION, "project": str(v.root), "state": str(v.dir), "enabled": v.enabled,
+                          "config": v.config, "codex": codex_ready(v), "snapshots": len(v.snapshots(1000)),
+                          "checks": [shlex.join(g["argv"]) for g in v.load("green.json", []) if g.get("argv")]},
+                         indent=1, ensure_ascii=False))
         return 0
-    print("usage: vibe.py undo [list|show N|restore N] | checks [forget CMD] | status", file=sys.stderr)
+    print("usage: vibe.py undo [list|show ID|restore ID] | checks [forget CMD] | status", file=sys.stderr)
     return 2
 
 
@@ -940,10 +1380,9 @@ def main():
         return EVENTS[event](v) or 0
     except Exception as e:  # fail open, but leave a trace
         try:
-            if v.enabled:
-                v.ensure()
-                with (v.dir / "errors.log").open("a") as f:
-                    f.write(f"{time.ctime()} {event}: {type(e).__name__}: {e}\n")
+            v.dir.mkdir(parents=True, exist_ok=True)
+            with (v.dir / "errors.log").open("a") as f:
+                f.write(f"{time.ctime()} {event}: {type(e).__name__}: {e}\n")
         except OSError:
             pass
         return 0

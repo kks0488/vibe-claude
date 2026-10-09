@@ -24,15 +24,19 @@ class Project(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="vibe-test-")).resolve()
         self.bin = Path(tempfile.mkdtemp(prefix="vibe-bin-")).resolve()
+        self.home = Path(tempfile.mkdtemp(prefix="vibe-home-")).resolve()
         self.sid, self.pid = "s1", "p1"
 
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
         shutil.rmtree(self.bin, ignore_errors=True)
+        shutil.rmtree(self.home, ignore_errors=True)
 
     def env(self):
         # A PATH without the real codex, so tests never call a real model.
-        return dict(os.environ, CLAUDE_PROJECT_DIR=str(self.dir), PATH=f"{self.bin}:/usr/bin:/bin", LANG="en_US.UTF-8")
+        return dict(os.environ, CLAUDE_PROJECT_DIR=str(self.dir), PATH=f"{self.bin}:/usr/bin:/bin", LANG="en_US.UTF-8",
+                    VIBE_HOME=str(self.home), VIBE_STOP_WAIT="5",
+                    VIBE_TEMP_ROOTS="/tmp:/private/tmp")  # test projects live in the system temp folder
 
     def hook(self, event, **data):
         data.setdefault("session_id", self.sid)
@@ -64,8 +68,18 @@ class Project(unittest.TestCase):
         return self.hook("post-tool-fail", tool_name="Bash", tool_input={"command": cmd},
                          error=f"Exit code 1\n{stdout}")[0]
 
-    def stop(self, msg="Done. Open http://localhost:3000 to see it.", active=False):
-        return self.hook("stop", last_assistant_message=msg, stop_hook_active=active, background_tasks=[])[0]
+    def stop(self, msg="Done. Open http://localhost:3000 to see it.", active=False, background=()):
+        self.last_stop = dict(last_assistant_message=msg, stop_hook_active=active, background_tasks=list(background))
+        return self.hook("stop", last_assistant_message=msg, stop_hook_active=active, background_tasks=list(background))[0]
+
+    def codex(self):
+        return self.hook("codex", **self.last_stop)
+
+    def snap_id(self, kind, label=""):
+        for line in self.cli("undo", "list").stdout.splitlines():
+            if kind in line and label in line:
+                return line.split()[0]
+        self.fail(f"no snapshot {kind!r} {label!r}")
 
     def pre(self, tool, **tool_input):
         return self.hook("pre-tool", tool_name=tool, tool_input=tool_input)[0]
@@ -122,12 +136,85 @@ class ProofTests(Project):
     def test_piped_check_uses_tool_output_not_exit_code(self):
         self.edit("app.py")
         self.ran("pytest 2>&1 | tail -3", stdout="==== 2 failed, 3 passed ====")
-        self.assertIn("failed", self.stop()["reason"])
+        self.assertIn("hid its real result", self.stop()["reason"])
 
-    def test_piped_check_with_clean_output_passes(self):
+    def test_piped_check_is_not_trusted_even_with_clean_output(self):
         self.edit("app.py")
         self.ran("pytest 2>&1 | tail -3", stdout="==== 5 passed in 0.1s ====")
+        self.assertIn("hid its real result", self.stop()["reason"])
+
+    def test_pipefail_makes_a_piped_check_trustworthy(self):
+        self.edit("app.py")
+        self.ran("set -o pipefail; pytest 2>&1 | tail -3")
         self.assertIn("systemMessage", self.stop())
+
+    def test_inline_code_counts_only_when_it_loads_project_code(self):
+        self.edit("calc.py", "def add(a, b):\n    return a + b\n")
+        self.ran('python3 -c "print(5)"')
+        self.assertIn("nothing was run", self.stop()["reason"])
+        self.ran('python3 -c "from calc import add; print(add(2, 3))"')
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+    def test_block_points_at_the_projects_own_tests(self):
+        self.write("tests/test_calc.py", "import unittest\n")
+        self.write("package.json", '{"scripts": {"test": "vitest", "build": "vite build"}}')
+        self.edit("app.py")
+        reason = self.stop()["reason"]
+        self.assertIn("npm test", reason)
+        self.assertIn("python3 -m pytest", reason)
+
+    def test_commands_that_only_mention_a_check_are_not_evidence(self):
+        self.edit("app.py")
+        for cmd in ("echo pytest", "pytest --help", "pytest --collect-only", "grep -r pytest ."):
+            self.ran(cmd)
+        self.assertIn("nothing was run", self.stop()["reason"])
+
+    def test_results_hidden_by_later_commands_are_unclear(self):
+        for i, cmd in enumerate(("pytest; echo finished", "pytest || echo recovered",
+                                 "set +o pipefail; pytest | tail -1", "pytest &")):
+            self.hook("prompt", prompt="again", prompt_id=f"h{i}")
+            self.pid = f"h{i}"
+            self.edit("app.py", f"x = {i}\n")
+            self.ran(cmd)
+            self.assertIn("hid its real result", self.stop()["reason"], cmd)
+
+    def test_chained_checks_with_and_all_count(self):
+        self.edit("app.js")
+        self.ran("cd web && npm run lint && npm test")
+        msg = self.stop()["systemMessage"]
+        self.assertIn("npm run lint", msg)
+
+    def test_changes_made_by_shell_commands_need_a_check_too(self):
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="change it with sed", prompt_id="sed")
+        self.pid = "sed"
+        self.write("app.py", "x = 2\n")  # changed by a Bash command, so no edit event
+        self.assertIn("app.py", self.stop()["reason"])
+        self.ran("python3 app.py")
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+    def test_fixing_a_bad_option_clears_the_failure(self):
+        self.edit("app.js")
+        self.ran("npm test --wrong-flag", ok=False)
+        self.ran("npm test")
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+    def test_a_narrower_passing_run_does_not_hide_a_failure(self):
+        self.edit("app.py")
+        self.ran("pytest", ok=False, stdout="3 failed")
+        self.ran("pytest tests/test_one.py")
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_app_errors_are_failures_not_missing_tools(self):
+        self.edit("app.js")
+        self.ran("npm test", ok=False, stdout="Error: Cannot find module './missing-app-file'")
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_background_work_ends_honestly_without_blocking(self):
+        self.edit("app.py")
+        out = self.stop(background=[{"id": "dev-server"}])
+        self.assertNotIn("decision", out)
+        self.assertIn("NOT verified", out["systemMessage"])
 
     def test_swallowed_errors_are_unclear(self):
         self.edit("app.py")
@@ -185,6 +272,18 @@ class ProofTests(Project):
         out = self.stop()
         self.assertIn("bash tests/check.sh", out["systemMessage"])
 
+    def test_ratchet_never_remembers_compound_commands(self):
+        self.write("tests/check.sh", "exit 0\n")
+        self.ran("bash tests/check.sh && touch deployed")
+        self.ran("FOO=1 bash tests/check.sh")
+        self.assertEqual(self.cli("checks").stdout.strip(), "No remembered checks.")
+
+    def test_project_folder_stays_clean(self):
+        self.edit("app.py")
+        self.ran("pytest")
+        self.stop()
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()), ["app.py"])
+
 
 class GuardTests(Project):
     def test_recursive_delete_asks_in_plain_words(self):
@@ -204,6 +303,26 @@ class GuardTests(Project):
                     "psql -c 'DROP TABLE users'", "supabase db reset", "find . -name '*.py' -delete",
                     "git checkout -- .", "sqlite3 app.db 'DELETE FROM users;'"):
             self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
+
+    def test_wrappers_and_git_options_do_not_bypass_the_guard(self):
+        for cmd in ("env rm -rf /", "sudo -n rm -rf /", "env FOO=1 rm -rf ~", "rm -rf ..", "rm -rf ./*"):
+            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "deny", cmd)
+        for cmd in ("git -C repo reset --hard", "git -c core.x=1 push --force", "rm -rf ../other-project/dist",
+                    "rm -rf /tmp-backups", "rm -rf src/*", "python manage.py flush", "echo 'DROP TABLE x;' | psql"):
+            self.assertEqual(self.decision(self.pre("Bash", command=cmd)), "ask", cmd)
+
+    def test_searching_or_dry_runs_are_not_dangerous(self):
+        for cmd in ("grep 'DROP TABLE' migration.sql", "git clean -ndf", "rg 'rm -rf' docs", "rm -rf /tmp/build-cache"):
+            self.assertIsNone(self.pre("Bash", command=cmd), cmd)
+
+    def test_backup_promise_is_only_made_when_true(self):
+        self.write("photos/a.txt", "1")
+        out = self.pre("Bash", command="rm -rf photos")
+        self.assertIn("backup of your files was saved", out["hookSpecificOutput"]["permissionDecisionReason"])
+        out = self.pre("Bash", command="git clean -fdx")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
+        out = self.pre("Bash", command="rm -rf ../elsewhere")
+        self.assertIn("cannot bring this back", out["hookSpecificOutput"]["permissionDecisionReason"])
 
     def test_ordinary_commands_pass(self):
         for cmd in ("git status", "ls -la", "npm run build", "git push origin main", "rm notes.txt",
@@ -242,8 +361,16 @@ class GuardTests(Project):
 
     def test_install_command_parsing(self):
         found = list(vibe.install_targets("npm i -D @types/node@20 react && pip install 'flask[async]==3.0' -r req.txt"
-                                          " && cargo add serde && pip install ."))
-        self.assertEqual(found, [("npm", "@types/node"), ("npm", "react"), ("pypi", "flask"), ("crates", "serde")])
+                                          " && cargo add serde && pip install . && pip install --target vendor requests"
+                                          " && python3 -m pip install -U httpx"))
+        self.assertEqual([(e, n) for e, n, _ in found], [("npm", "@types/node"), ("npm", "react"), ("pypi", "flask"),
+                                                         ("crates", "serde"), ("pypi", "requests"), ("pypi", "httpx")])
+        self.assertTrue(all(p for _, _, p in vibe.install_targets("pip install --index-url https://corp/simple corp-lib")))
+
+    def test_private_registry_names_are_never_sent_out(self):
+        self.write(".npmrc", "@corp:registry=https://npm.corp.example\n")
+        self.assertTrue(vibe.private_registry("npm", "@corp/ui", self.dir))
+        self.assertFalse(vibe.private_registry("npm", "react", self.dir))
 
     def test_package_reality_check(self):
         original = vibe.package_info
@@ -297,18 +424,14 @@ class SnapshotTests(Project):
         self.hook("prompt", prompt="change version")
         self.write("app.py", "version = 2\n")
         self.write("new.py", "extra = True\n")
-        listing = self.cli("undo", "list").stdout
-        self.assertIn("before request", listing)
-        self.assertIn("change version", listing)
-        r = self.cli("undo", "restore", "1")
+        r = self.cli("undo", "restore", self.snap_id("before request", "change version"))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((self.dir / "app.py").read_text(), "version = 1\n")
         self.assertFalse((self.dir / "new.py").exists())
         self.assertTrue((self.dir / "node_modules/big.js").exists())
         self.assertFalse((self.dir / ".git").exists())
         # The undo itself can be undone: the newest snapshot is the state before the undo.
-        self.assertIn("before an undo", self.cli("undo", "list").stdout)
-        self.cli("undo", "restore", "1")
+        self.cli("undo", "restore", self.snap_id("before an undo"))
         self.assertEqual((self.dir / "app.py").read_text(), "version = 2\n")
         self.assertTrue((self.dir / "new.py").exists())
 
@@ -317,9 +440,33 @@ class SnapshotTests(Project):
         self.pre("Bash", command="rm -rf photos")
         self.assertIn("before risky command", self.cli("undo", "list").stdout)
 
-    def test_state_folder_hides_itself_from_git(self):
+    def test_unknown_ids_are_rejected(self):
         self.hook("prompt", prompt="hi")
-        self.assertEqual((self.dir / ".vibe/.gitignore").read_text(), "*\n")
+        self.assertEqual(self.cli("undo", "restore", "deadbeef00").returncode, 1)
+        self.assertEqual(self.cli("undo", "restore", "1").returncode, 1)
+
+    def test_restore_never_follows_links_out_of_the_project(self):
+        outside = Path(tempfile.mkdtemp(prefix="vibe-outside-"))
+        self.addCleanup(shutil.rmtree, outside, True)
+        (outside / "a.txt").write_text("precious")
+        (self.dir / "assets").symlink_to(outside)
+        self.hook("prompt", prompt="before")
+        (self.dir / "assets").unlink()
+        self.write("assets/a.txt", "new")
+        self.hook("prompt", prompt="after", prompt_id="p9")
+        r = self.cli("undo", "restore", self.snap_id("before request", "'before'"))
+        self.assertEqual((outside / "a.txt").read_text(), "precious")
+
+    def test_restore_refuses_to_replace_a_folder_with_unsaved_files(self):
+        self.write("notes", "a file")
+        self.hook("prompt", prompt="before")
+        (self.dir / "notes").unlink()
+        self.write("notes/big.bin", "x")
+        (self.dir / ".gitignore").write_text("*.bin\n")
+        r = self.cli("undo", "restore", self.snap_id("before request", "'before'"))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("changed shape", r.stdout)
+        self.assertTrue((self.dir / "notes/big.bin").exists())
 
     def test_home_folder_is_never_snapshotted(self):
         v = vibe.Vibe({"cwd": str(Path.home())})
@@ -348,7 +495,7 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
     def test_findings_wake_claude_with_exit_2(self):
         self.fake_codex("- app.py:1 — total is wrong — the user sees a bad price")
         self.assertIn("Codex review running", self.finish_a_verified_change()["systemMessage"])
-        out, p = self.hook("codex", background_tasks=[])
+        out, p = self.codex()
         self.assertEqual(p.returncode, 2)
         self.assertIn("independent reviewer", p.stderr)
         self.assertIn("total is wrong", p.stderr)
@@ -356,20 +503,53 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.assertIn("Fix the total", prompt)
         self.assertIn("+x = 2", prompt)
         # The same change is never reviewed twice.
-        self.assertEqual(self.hook("codex", background_tasks=[])[1].returncode, 0)
+        self.assertEqual(self.codex()[1].returncode, 0)
+
+    def test_secrets_never_reach_the_reviewer(self):
+        self.fake_codex("LGTM")
+        key = "sk-proj-" + "a" * 30
+        self.write(".env", "OPENAI_API_KEY=old\n")
+        self.hook("prompt", prompt="Use my key")
+        self.write(".env", f"OPENAI_API_KEY={key}\n")
+        self.write("app.py", f"KEY = '{key}'\n")
+        self.ran("python3 app.py")
+        self.stop()
+        self.codex()
+        prompt = (self.bin / "prompt").read_text()
+        self.assertNotIn(key, prompt)
+        self.assertNotIn(".env", prompt)
+        self.assertIn("[redacted", prompt)
+
+    def test_a_failed_review_is_retried(self):
+        script = self.bin / "codex"
+        script.write_text(f"#!/bin/bash\n[ \"$1\" = login ] && exit 0\necho run >> {self.bin}/calls\nexit 1\n")
+        script.chmod(0o755)
+        self.finish_a_verified_change()
+        self.codex()
+        self.stop("Done. Open http://localhost:3000 now.")
+        self.codex()
+        self.assertEqual((self.bin / "calls").read_text().count("run"), 2)
 
     def test_lgtm_stays_quiet(self):
         self.fake_codex("LGTM")
         self.finish_a_verified_change()
-        out, p = self.hook("codex", background_tasks=[])
+        out, p = self.codex()
         self.assertEqual((p.returncode, p.stderr), (0, ""))
 
     def test_without_codex_everything_still_works(self):
         out = self.finish_a_verified_change()
         self.assertNotIn("Codex", out["systemMessage"])
         started = time.time()
-        self.assertEqual(self.hook("codex", background_tasks=[])[1].returncode, 0)
+        self.assertEqual(self.codex()[1].returncode, 0)
         self.assertLess(time.time() - started, 10)
+
+    def test_unverified_changes_are_reviewed_too(self):
+        self.fake_codex("- app.py:1 — bug")
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="Fix")
+        self.edit("app.py", "x = 2\n")
+        self.assertIn("Codex review running", self.stop(active=True)["systemMessage"])
+        self.assertEqual(self.codex()[1].returncode, 2)
 
     def test_codex_skips_when_stop_was_blocked(self):
         self.fake_codex("- bug")
@@ -377,7 +557,7 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.hook("prompt", prompt="Fix")
         self.edit("app.py", "x = 2\n")
         self.assertEqual(self.stop()["decision"], "block")
-        self.assertEqual(self.hook("codex", background_tasks=[])[1].returncode, 0)
+        self.assertEqual(self.codex()[1].returncode, 0)
 
 
 class SessionTests(Project):
