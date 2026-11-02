@@ -82,6 +82,8 @@ Files are kept before a delete, a permanent step makes Claude stop and check, an
 
 <p align="center"><img src="assets/demo-guard.svg" alt="Terminal demo: files are kept before deleting, and undo restores them" width="100%"></p>
 
+Case study: [Keeping a Founder's Words From Vanishing Across 33 Registered AI Sessions](docs/case-study/keeping-founder-words.md)
+
 ## How it was tested
 
 - Tuned against 16 days of the author's real sessions, about 22,000 commands.
