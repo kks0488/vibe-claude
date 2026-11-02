@@ -83,3 +83,11 @@ Closure Type: [Work Completed | Acknowledged | Handed Off to Task Card]
 Result Evidence:
 [Record concrete result evidence before closing]
 ```
+
+## The Pieces We Published
+
+We published a few parts of the setup described in this post as small open source tools, extracted as standalone versions rather than exact copies of our internal operations.
+
+- [never-miss](https://github.com/kks0488/never-miss): A small Claude Code hook that logs submitted prompts to a local append-only file and shows which ones are still open.
+- [agent-cards](https://github.com/kks0488/agent-cards): A small Python CLI using only the standard library on top of Vikunja that lets AI workers claim tasks one by one and record deadlines, interim notes, and completions with evidence.
+- [agent-fleet](https://github.com/kks0488/agent-fleet): A small tmux conductor for running multiple named Claude Code sessions in a single terminal.
