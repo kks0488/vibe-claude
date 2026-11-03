@@ -63,9 +63,9 @@ Claude Code, `python3`, and `git` are required. Codex is optional.
 
 Each change ends with one line that says what really happened:
 
-In 6.1, the line distinguishes tests, builds, program runs and remote re-reads. An unrelated script gives only partial verification.
-After a supported remote change, Claude is asked once to re-read the same target. If it cannot, the line says the remote result is not verified.
-Short conversations with no changes have no start or end notice.
+In 6.1, the line tells apart tests, builds, program runs, and remote re-reads. Running an unrelated script gives only partial verification.
+After a supported remote change, Claude is asked once to re-read the same target. If it cannot, the line reports that the remote result is not verified.
+Short conversations without changes do not show a start or end notice.
 
 | Line | Meaning |
 | --- | --- |
@@ -144,7 +144,7 @@ The review sends Codex the request and the changed lines. Files named like `.env
 
 ### Where data is kept
 
-`ledger.jsonl` records Stop outcomes, warning overrides and undo results with a session ID. Logs over 2 MB move to `ledger-YYYYMM.jsonl`. Old records are kept. Direct CLI undo uses the ID `cli`, or `CLAUDE_SESSION_ID` when supplied.
+`ledger.jsonl` logs Stop outcomes, warning overrides, and undo results with a session ID. Logs over 2 MB move to `ledger-YYYYMM.jsonl`, and old records are kept. Direct CLI undo uses `cli` as the ID, or `CLAUDE_SESSION_ID` when supplied.
 
 In `~/.vibe-claude/`, outside your projects, so `git clean` can't delete the backups and a cloned repository can't change them. The newest 150 snapshots per project are kept; the trash is emptied after 7 days. Files over 5 MB are not snapshotted. Sessions started in your home folder get the guard but no snapshots or proof gate.
 

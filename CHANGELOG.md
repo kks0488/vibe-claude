@@ -2,11 +2,11 @@
 
 ## v6.1.0 — 2026-11-04
 
-- Record Stop blocks, passes, unverified endings, overrides and undo results with session IDs. Archive logs over 2 MB by month without discarding old records. `vibe.py status` counts the last seven days, including archives.
-- Distinguish tests, builds, program runs and remote re-reads. Unrelated runs give only partial verification.
-- Ask once for a same-target re-read after supported Bash remote writes: GitHub PRs, issues and releases, git push, Vercel deploy and npm publish. Report missing re-reads honestly. Email send scripts are outside this check.
-- Delay guidance until work changes something. Idle conversation stays silent. Session state is separate and ledger writes are serialized.
-- Candidate for 6.2: structured numeric totals and source freshness. No numeric checks in 6.1.
+- Log Stop blocks, passes, unverified endings, overrides, and undo results with session IDs. Archive logs over 2 MB by month without deleting old records. `vibe.py status` counts the last seven days, including archives.
+- Tell apart tests, builds, program runs, and remote re-reads. Unrelated runs only give partial verification.
+- Ask once to re-read the same target after supported Bash remote writes: GitHub PRs, issues and releases, git push, Vercel deploy, and npm publish. Report missing re-reads honestly. Email send scripts stay outside this check.
+- Wait until work changes something before showing guidance, keeping idle conversation silent. Keep session state separate and serialize ledger writes.
+- Candidate for 6.2: structured numeric totals and source freshness. 6.1 has no numeric checks.
 
 ## v6.0.0 — 2026-10-09
 
