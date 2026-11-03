@@ -57,20 +57,20 @@ SECRET_FILES = re.compile(r"(^|/)\.env(\.[\w.-]+)?$|\.(pem|key|p12|pfx)$|(^|/)(i
 # --------------------------------------------------------------------------- text shown to the user
 
 MSG = {
-    "receipt_ok": ("vibe ✓ {n} file(s) changed · checked: {checks}{codex} · undo: /vibe-claude:undo",
-                   "vibe ✓ 파일 {n}개 변경 · 확인됨: {checks}{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_none": ("vibe ⚠ {n} file(s) changed · NOT verified: nothing was run to check it{codex} · undo: /vibe-claude:undo",
-                     "vibe ⚠ 파일 {n}개 변경 · 확인 안 됨: 실행해서 확인한 기록이 없어요{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_fail": ("vibe ✗ {n} file(s) changed · check FAILED: {cmd}{codex} · undo: /vibe-claude:undo",
-                     "vibe ✗ 파일 {n}개 변경 · 검사 실패: {cmd}{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_partial": ("vibe ⚠ {n} file(s) changed · partially verified: {checks}, but {cmd} gave no clear result{codex} · undo: /vibe-claude:undo",
-                        "vibe ⚠ 파일 {n}개 변경 · 부분 확인: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_scope": ("vibe ⚠ {n} file(s) changed · partially verified: {checks}; uncovered: {files}{codex} · undo: /vibe-claude:undo",
-                      "vibe ⚠ 파일 {n}개 변경 · 부분 확인: {checks}; 확인 못 한 파일: {files}{codex} · 되돌리기: /vibe-claude:undo"),
+    "receipt_ok": ("vibe ✓ {n} file(s) changed / checked: {checks}{codex} / undo: /vibe-claude:undo",
+                   "vibe ✓ 파일 {n}개 변경 / 확인됨: {checks}{codex} / 되돌리기: /vibe-claude:undo"),
+    "receipt_none": ("vibe ⚠ {n} file(s) changed / NOT verified: nothing was run to check it{codex} / undo: /vibe-claude:undo",
+                     "vibe ⚠ 파일 {n}개 변경 / 확인 안 됨: 실행해서 확인한 기록이 없어요{codex} / 되돌리기: /vibe-claude:undo"),
+    "receipt_fail": ("vibe ✗ {n} file(s) changed / check FAILED: {cmd}{codex} / undo: /vibe-claude:undo",
+                     "vibe ✗ 파일 {n}개 변경 / 검사 실패: {cmd}{codex} / 되돌리기: /vibe-claude:undo"),
+    "receipt_partial": ("vibe ⚠ {n} file(s) changed / partially verified: {checks}, but {cmd} gave no clear result{codex} / undo: /vibe-claude:undo",
+                        "vibe ⚠ 파일 {n}개 변경 / 부분 확인: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} / 되돌리기: /vibe-claude:undo"),
+    "receipt_scope": ("vibe ⚠ {n} file(s) changed / partially verified: {checks}; uncovered: {files}{codex} / undo: /vibe-claude:undo",
+                      "vibe ⚠ 파일 {n}개 변경 / 부분 확인: {checks}; 확인 못 한 파일: {files}{codex} / 되돌리기: /vibe-claude:undo"),
     "remote_missing": ("remote result NOT verified", "원격 결과 확인 못 함"),
     "remote_ok": ("remote result re-read", "원격 결과 다시 읽음"),
-    "codex_wait": (" · Codex review running", " · Codex 검토 중"),
-    "irreversible": (" · could not be undone: {what}", " · 되돌릴 수 없는 작업이 있었어요 — {what}"),
+    "codex_wait": (" / Codex review running", " / Codex 검토 중"),
+    "irreversible": (" / could not be undone: {what}", " / 되돌릴 수 없는 작업이 있었어요 — {what}"),
     "irreversible_only": ("vibe ⚠ could not be undone: {what}", "vibe ⚠ 되돌릴 수 없는 작업이 있었어요 — {what}"),
 }
 
