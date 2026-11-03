@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.ko.md"><b>한국어</b></a>
+  <b>English</b> / <a href="README.ko.md"><b>한국어</b></a>
 </p>
 
 <h2 align="center">When Claude says it's done,<br>vibe-claude checks that it actually works.</h2>
@@ -63,9 +63,13 @@ Claude Code, `python3`, and `git` are required. Codex is optional.
 
 Each change ends with one line that says what really happened:
 
+In 6.1, the line distinguishes tests, builds, program runs and remote re-reads. An unrelated script gives only partial verification.
+After a supported remote change, Claude is asked once to re-read the same target. If it cannot, the line says the remote result is not verified.
+Short conversations with no changes have no start or end notice.
+
 | Line | Meaning |
 | --- | --- |
-| `vibe ✓ 2 files changed · checked: npm test` | It was tested after the last change and passed. |
+| `vibe ✓ 2 files changed / checked: npm test` | It was tested after the last change and passed. |
 | `vibe ⚠ … NOT verified` | Nothing could be tested. Treat this change with care. |
 | `vibe ✗ … check FAILED` | It is still broken, and Claude has been told. |
 | `… could not be undone — …` | Claude did something permanent, such as resetting a database. The line says what. |
@@ -87,7 +91,7 @@ Case study: [Keeping a Founder's Words From Vanishing Across 33 Registered AI Se
 ## How it was tested
 
 - Tuned against 16 days of the author's real sessions, about 22,000 commands.
-- 87 automated tests, plus end-to-end runs with Claude Code 2.1.286 and Codex CLI 0.162.
+- v6.0 had 87 automated tests and live runs with Claude Code 2.1.286 and Codex CLI 0.162. The 6.1 changes have automated tests but have not been checked in a live Claude Code session.
 - Reviewed four times by Codex before release.
 - In those sessions it added about 1% to AI usage.
 
@@ -100,7 +104,7 @@ Case study: [Keeping a Founder's Words From Vanishing Across 33 Registered AI Se
 
 | Part | What happens |
 | --- | --- |
-| Proof gate | Every shell command and its real exit code is logged. When Claude tries to stop after changing code, it is sent back once unless a test, build or run of the program passed after the last edit. Words in the reply don't count, and neither does a result hidden by a pipe, `;`, `\|\|` or `&`. If it still can't verify, it may stop, and the summary line says so. |
+| Proof gate | Observed check results are logged. When Claude tries to stop after changing code, it is sent back once unless a test, build or run of the program passed after the last edit. Words in the reply don't count, and neither does a result hidden by a pipe, `;`, `\|\|` or `&`. If it still can't verify, it may stop, and the summary line says so. |
 | Regression ratchet | Plain check commands that passed before in the project (never compound commands or deploys) are re-run at the end of a change. |
 | Second opinion | With [Codex CLI](https://github.com/openai/codex) installed and logged in, `codex exec` reviews the change read-only in the background and wakes Claude through `asyncRewake` if it finds a real problem. At most two rounds per request. |
 | Summary line | A `systemMessage` built from the log, never written by the model. |
@@ -127,7 +131,7 @@ All optional. Put a `.vibe/config.json` in your project:
 - `"codex": "off"` turns the second opinion off.
 - `lang` is `"en"` or `"ko"`. By default it follows the language you write in.
 - `safe_to_delete` lists folders of generated files (screenshots, build output) that don't need a trash copy.
-- `python3 <plugin folder>/hooks/vibe.py status` shows what is active and where its data is kept.
+- `python3 <plugin folder>/hooks/vibe.py status` also shows seven-day counts of blocks, passes, unverified endings and undo operations.
 
 ### Updating and turning it off
 
@@ -139,6 +143,8 @@ All optional. Put a `.vibe/config.json` in your project:
 The review sends Codex the request and the changed lines. Files named like `.env`, `*.pem` or `*.key`, files containing private keys, and secret-looking values are left out or masked first. Turn the review off with `"codex": "off"`.
 
 ### Where data is kept
+
+`ledger.jsonl` records Stop outcomes, warning overrides and undo results with a session ID. Logs over 2 MB move to `ledger-YYYYMM.jsonl`. Old records are kept. Direct CLI undo uses the ID `cli`, or `CLAUDE_SESSION_ID` when supplied.
 
 In `~/.vibe-claude/`, outside your projects, so `git clean` can't delete the backups and a cloned repository can't change them. The newest 150 snapshots per project are kept; the trash is emptied after 7 days. Files over 5 MB are not snapshotted. Sessions started in your home folder get the guard but no snapshots or proof gate.
 
@@ -176,5 +182,5 @@ Claude Code already has plan mode, memory, subagents, `/rewind`, `/code-review` 
   <a href="https://github.com/kks0488/vibe-claude/releases"><img src="https://img.shields.io/github/v/release/kks0488/vibe-claude?color=d97757&label=release" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT license"></a>
   <br>
-  <a href="CHANGELOG.md">Changelog</a> · <a href="docs/HISTORY.md">History</a> · MIT © Kyoungsoo Kim and contributors
+  <a href="CHANGELOG.md">Changelog</a> / <a href="docs/HISTORY.md">History</a> / MIT © Kyoungsoo Kim and contributors
 </p>

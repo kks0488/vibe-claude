@@ -1,12 +1,6 @@
 {
-  "description": "vibe-claude v6: proof, guard and undo. One script handles every event.",
+  "description": "vibe-claude v6.1: scoped proof, remote re-reads, event ledger, guard and undo.",
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" session-start", "timeout": 10 }]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [{ "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/vibe.py\" prompt", "timeout": 60 }]

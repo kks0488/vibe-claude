@@ -9,6 +9,7 @@ Every hook fails open: an internal error never blocks the user's work.
 """
 
 import hashlib
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -22,7 +23,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-VERSION = "6.0.0"
+VERSION = "6.1.0"
+LEDGER_MAX = 2_000_000
 DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": True, "lang": None, "safe_to_delete": []}
 DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock",
            "log", "snap", "map"}
@@ -61,8 +63,12 @@ MSG = {
                      "vibe ⚠ 파일 {n}개 변경 · 확인 안 됨: 실행해서 확인한 기록이 없어요{codex} · 되돌리기: /vibe-claude:undo"),
     "receipt_fail": ("vibe ✗ {n} file(s) changed · check FAILED: {cmd}{codex} · undo: /vibe-claude:undo",
                      "vibe ✗ 파일 {n}개 변경 · 검사 실패: {cmd}{codex} · 되돌리기: /vibe-claude:undo"),
-    "receipt_partial": ("vibe ⚠ {n} file(s) changed · checked: {checks}, but {cmd} gave no clear result{codex} · undo: /vibe-claude:undo",
-                        "vibe ⚠ 파일 {n}개 변경 · 확인됨: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} · 되돌리기: /vibe-claude:undo"),
+    "receipt_partial": ("vibe ⚠ {n} file(s) changed · partially verified: {checks}, but {cmd} gave no clear result{codex} · undo: /vibe-claude:undo",
+                        "vibe ⚠ 파일 {n}개 변경 · 부분 확인: {checks}, 하지만 {cmd}는 결과가 불분명해요{codex} · 되돌리기: /vibe-claude:undo"),
+    "receipt_scope": ("vibe ⚠ {n} file(s) changed · partially verified: {checks}; uncovered: {files}{codex} · undo: /vibe-claude:undo",
+                      "vibe ⚠ 파일 {n}개 변경 · 부분 확인: {checks}; 확인 못 한 파일: {files}{codex} · 되돌리기: /vibe-claude:undo"),
+    "remote_missing": ("remote result NOT verified", "원격 결과 확인 못 함"),
+    "remote_ok": ("remote result re-read", "원격 결과 다시 읽음"),
     "codex_wait": (" · Codex review running", " · Codex 검토 중"),
     "irreversible": (" · could not be undone: {what}", " · 되돌릴 수 없는 작업이 있었어요 — {what}"),
     "irreversible_only": ("vibe ⚠ could not be undone: {what}", "vibe ⚠ 되돌릴 수 없는 작업이 있었어요 — {what}"),
@@ -121,13 +127,20 @@ class Vibe:
         self.pid = str(data.get("prompt_id", ""))
 
     # ---- files
+    def state_name(self, name):
+        # Stop decisions, warning retries and review budgets belong to a session.
+        if name == "state.json" and self.sid and self.sid != "cli":
+            return "state-" + hashlib.sha1(self.sid.encode()).hexdigest()[:16] + ".json"
+        return name
+
     def load(self, name, default):
         try:
-            return json.loads((self.dir / name).read_text())
+            return json.loads((self.dir / self.state_name(name)).read_text())
         except (OSError, ValueError):
             return default
 
     def save(self, name, value):
+        name = self.state_name(name)
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = self.dir / f"{name}.{os.getpid()}.tmp"
         tmp.write_text(json.dumps(value, ensure_ascii=False, indent=1))
@@ -156,30 +169,87 @@ class Vibe:
         return st
 
     # ---- ledger
+    @contextmanager
+    def ledger_lock(self):
+        """Serialize append, rotation and readers across hook processes."""
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with (self.dir / "ledger.lock").open("a+b") as lock:
+            if os.name == "nt":
+                import msvcrt
+                lock.write(b"\0")
+                lock.flush()
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                if os.name == "nt":
+                    lock.seek(0)
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def ledger(self):
+        """Read archives too, including requests that straddle a rotation."""
+        with self.ledger_lock():
+            return self.read_ledger()
+
+    def read_ledger(self):
+        """Caller holds ledger_lock, including when checking event idempotency."""
+        out = []
+        paths = sorted(self.dir.glob("ledger-[0-9][0-9][0-9][0-9][0-9][0-9].jsonl"))
+        paths.append(self.dir / "ledger.jsonl")
+        for path in paths:
+            if not path.exists():
+                continue
+            for line in path.read_text().splitlines():
+                try:
+                    e = json.loads(line)
+                    if isinstance(e, dict):
+                        out.append(e)
+                except ValueError:
+                    continue  # old or interrupted records are not events
+        return sorted(out, key=lambda e: e.get("t", 0))
+
     def log(self, **entry):
         if not self.enabled:
             return
         self.dir.mkdir(parents=True, exist_ok=True)
-        entry.update(t=time.time(), sid=self.sid, pid=self.pid)
+        entry.update(t=time.time(), sid=self.sid, pid=self.pid, version=VERSION)
         path = self.dir / "ledger.jsonl"
-        with path.open("a") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        if path.stat().st_size > 2_000_000:  # keep the newest half
-            lines = path.read_text().splitlines()
-            path.write_text("\n".join(lines[len(lines) // 2:]) + "\n")
+        with self.ledger_lock():
+            if entry.get("event_id") and any(e.get("event_id") == entry["event_id"] for e in self.read_ledger()):
+                return
+            with path.open("a+b") as f:
+                # Do not join a new event to a truncated legacy record.
+                f.seek(0, os.SEEK_END)
+                if f.tell():
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        f.write(b"\n")
+                f.write((json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8"))
+            if path.stat().st_size > LEDGER_MAX:
+                # Append to monthly archives. Keep even malformed legacy lines.
+                months = {}
+                for line in path.read_text().splitlines(keepends=True):
+                    try:
+                        ts = json.loads(line).get("t", entry["t"])
+                        month = time.strftime("%Y%m", time.localtime(ts))
+                    except (ValueError, TypeError, AttributeError, OverflowError, OSError):
+                        month = time.strftime("%Y%m")
+                    months.setdefault(month, []).append(line)
+                for month, lines in months.items():
+                    with (self.dir / f"ledger-{month}.jsonl").open("a") as archive:
+                        archive.writelines(lines)
+                path.write_text("")
 
     def turn(self):
         """Ledger entries of the current user request (same prompt_id)."""
         out = []
-        try:
-            lines = (self.dir / "ledger.jsonl").read_text().splitlines()
-        except OSError:
-            return out
-        for line in lines:
-            try:
-                e = json.loads(line)
-            except ValueError:
-                continue
+        for e in self.ledger():
             if e.get("sid") != self.sid:
                 continue
             if self.pid:
@@ -190,6 +260,13 @@ class Vibe:
             else:
                 out.append(e)
         return out
+
+    def stop_event(self, ev, **details):
+        turn = self.turn()
+        start = next((e["t"] for e in reversed(turn) if e.get("ev") == "turn"), 0)
+        key = hashlib.sha1(json.dumps([self.sid, self.pid, start, stop_id(self.data), ev]).encode()).hexdigest()
+        if not any(e.get("event_id") == key for e in turn):
+            self.log(ev=ev, event_id=key, **details)
 
     # ---- shadow snapshots: a private git repository outside the project, never the user's .git
     def git(self, *args, index=None, timeout=60, input_text=None):
@@ -1030,7 +1107,7 @@ def package_info(eco, name):
 # --------------------------------------------------------------------------- events
 
 RULES = """vibe-claude is active. The user may not read code, so:
-1. Prove it, don't claim it. A hook records every command and its real exit code. After you change files, run a real check (tests, build, or the program itself) after the last change, on its own or joined with `&&` (not followed by `;`, `||` or a pipe), before you say it is done.
+1. Prove it, don't claim it. Hooks record check results. After changing files, run a related test, build or program after the last change. Run it alone or joined with `&&`. After a supported remote change, re-read the same target before reporting completion.
 2. Report in plain words: what changed for the user, how they can see it themselves (a URL, a command, or where to click), and what might break. No diffs or code unless asked.
 3. Same error twice: change the approach instead of retrying.
 4. Change only what was asked. Never weaken, skip or delete tests to make them pass; fix the code.
@@ -1038,7 +1115,15 @@ RULES = """vibe-claude is active. The user may not read code, so:
 
 
 def on_session_start(v):
-    emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
+    return  # A greeting must not inject work instructions. Wait for an actual change.
+
+
+def work_guidance(v):
+    turn = v.turn()
+    if not any(e.get("ev") == "turn" for e in turn) or any(e.get("ev") == "guidance" for e in turn):
+        return
+    v.log(ev="guidance")
+    emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                  "additionalContext": RULES.replace("{vibe}", str(Path(__file__).resolve()))}})
 
 
@@ -1297,17 +1382,193 @@ def tool_missing(prog, out, code):
                           rf"|Missing script: \"?{p}|npm (ERR!|error) Missing script", out[-2000:], re.M))
 
 
+def option(args, *names):
+    for i, a in enumerate(args):
+        for name in names:
+            if a.startswith(name + "="):
+                return a.split("=", 1)[1]
+            if a == name and i + 1 < len(args):
+                return args[i + 1]
+    return ""
+
+
+def positional(args):
+    """Only positional targets, never option values such as a PR title."""
+    takes_value = {"-R", "--repo", "-b", "--branch", "--head", "--base", "-t", "--title", "--body",
+                   "--body-file", "--json", "--jq", "--template", "--state", "--limit", "-L", "--registry",
+                   "--tag", "--access", "--cwd", "--scope", "--target", "--token", "-H", "--hostname"}
+    out, skip = [], False
+    for a in args:
+        if skip:
+            skip = False
+        elif a in takes_value:
+            skip = True
+        elif not a.startswith("-"):
+            out.append(a)
+    return out
+
+
+def repo_name(value):
+    value = re.sub(r"\.git$", "", value.strip())
+    value = re.sub(r"^(?:https?://|ssh://git@|git@)", "", value).replace(":", "/")
+    return re.sub(r"^github\.com/", "", value)
+
+
+def remote_commands(cmd, root, base, output=""):
+    """Bounded Bash support. Unknown identities stay pending, never match a random read.
+
+    These records say a target was re-read, not that a deployment or business action succeeded.
+    No writes or network calls are executed here.
+    """
+    found, cwd = [], Path(base or root).resolve()
+    segs = segments(cmd)
+    for i, (op, toks) in enumerate(segs):
+        if not toks:
+            continue
+        if toks[0] == "cd" and len(toks) > 1:
+            cwd = (cwd / toks[1]).resolve()
+            continue
+        real = unwrap(toks)
+        if not real:
+            continue
+        prog, args = os.path.basename(real[0]), real[1:]
+        if any(a in INFO_FLAGS for a in args):
+            continue
+        # Compound responses do not identify which command produced the output.
+        stdout = output if len(segs) == 1 else ""
+        trusted = not any(o in ("||", "&", "|") for o, _ in segs[1:i + 1]) and all(
+            o == "&&" for o, _ in segs[i + 1:])
+        record = None
+        if prog == "gh":
+            repo = option(args, "-R", "--repo")
+            repo = repo or run(["git", "config", "--get", "remote.origin.url"], cwd=cwd)[1].strip()
+            scope = repo_name(repo) if repo else "cwd:" + str(cwd)
+            # gh supports global --repo before the resource as well as after it.
+            rest = list(args)
+            for flag in ("-R", "--repo"):
+                if flag in rest:
+                    n = rest.index(flag)
+                    del rest[n:n + 2]
+            rest = [a for a in rest if not a.startswith("--repo=")]
+            if len(rest) < 2:
+                continue
+            resource, action, tail = rest[0], rest[1], rest[2:]
+            target_args = positional(tail)
+            target = target_args[0] if target_args else ""
+            url = re.search(r"https://github\.com/([^\s/]+/[^\s/]+)/(pull|issues|releases/tag)/([^\s]+)",
+                            target or stdout)
+            if url:
+                scope, target = url[1], url[3].rstrip(".,)")
+            write = (resource, action) in {("pr", "create"), ("pr", "merge"), ("issue", "create"),
+                                              ("issue", "close"), ("release", "create")}
+            read = resource in ("pr", "issue", "release", "run") and action in ("view", "list")
+            if write or read:
+                # Create options/files are not target identities. Only returned URLs identify new items.
+                if action == "create" and resource in ("pr", "issue") and not url:
+                    target = ""
+                if resource == "run":
+                    target = option(tail, "--branch", "-b")
+                    if not target and action == "view":
+                        try:
+                            target = json.loads(stdout).get("headBranch", "")
+                        except (ValueError, AttributeError):
+                            pass
+                record = dict(action="write" if write else "read", service="gh:" + resource,
+                              scope=scope, target=target)
+        elif prog == "git":
+            # -C and -c alter command context; do not guess at their remote identity.
+            if not args or args[0] not in ("push", "ls-remote"):
+                continue
+            action = args[0]
+            pos = positional(args[1:])
+            remote = pos[0] if pos else "origin"
+            url = run(["git", "config", "--get", f"remote.{remote}.url"], cwd=cwd)[1].strip()
+            scope = repo_name(url or remote) if url or re.search(r"[:/@]", remote) else f"cwd:{cwd}:{remote}"
+            refs = pos[1:]
+            if action == "push" and not refs:
+                branch = run(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd)[1].strip()
+                refs = [branch] if branch else [""]
+            elif action == "ls-remote" and not refs:
+                refs = re.findall(r"^[0-9a-fA-F]+\s+(refs/[^\s]+)$", stdout, re.M)
+            for ref in refs or [""]:
+                dest = ref.split(":", 1)[-1].lstrip("+")
+                if dest and not dest.startswith("refs/"):
+                    dest = "refs/heads/" + dest
+                found.append(dict(action="write" if action == "push" else "read", service="git",
+                                  scope=scope, target=dest, trusted=trusted))
+        elif prog == "vercel" and (not args or args[0] in ("deploy", "--prod")):
+            urls = re.findall(r"https://[a-zA-Z0-9.-]+\.vercel\.app(?:/[^\s]*)?", stdout)
+            record = dict(action="write", service="deploy", scope="url", target=urls[-1].rstrip("/") if urls else "")
+        elif prog == "curl":
+            if any(a in args for a in ("-X", "--request", "-d", "--data", "--data-raw", "-F", "--form", "-T", "--upload-file")):
+                continue
+            urls = [a.rstrip("/") for a in args if a.startswith("https://")]
+            if len(urls) == 1:
+                record = dict(action="read", service="deploy", scope="url", target=urls[0])
+        elif prog == "npm" and args and args[0] in ("publish", "view"):
+            action = args[0]
+            registry = option(args, "--registry") or "default"
+            if action == "publish":
+                pos = positional(args[1:])
+                folder = (cwd / pos[0]).resolve() if pos else cwd
+                try:
+                    package = json.loads((folder / "package.json").read_text())
+                    target = package["name"] + "@" + package["version"]
+                    registry = option(args, "--registry") or package.get("publishConfig", {}).get("registry", "default")
+                except (OSError, ValueError, KeyError, TypeError):
+                    target = ""
+            else:
+                pos = positional(args[1:])
+                target = pos[0] if pos else ""
+                if target and "@" not in target.lstrip("@"):
+                    # `npm view NAME version` may return the exact published version.
+                    version = stdout.strip().strip('"')
+                    if len(pos) > 1 and pos[1] == "version" and re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][\w.-]+)?", version):
+                        target += "@" + version
+            record = dict(action="write" if action == "publish" else "read", service="npm", scope=registry, target=target)
+        if record:
+            found.append(dict(record, trusted=trusted))
+    return found
+
+
+def remote_pending(v):
+    pending, read = [], []
+    for e in v.turn():
+        if e.get("ev") != "remote":
+            continue
+        if e.get("action") == "write":
+            pending.append(e)
+        elif e.get("ok") and e.get("target"):
+            matches = [w for w in pending if w.get("ok") and w.get("target") == e["target"]
+                       and w.get("scope") == e.get("scope") and w.get("service") == e.get("service")]
+            # A workflow read can confirm a push to the same repo and explicit branch.
+            if e.get("service") == "gh:run":
+                matches += [w for w in pending if w.get("ok") and w.get("service") == "git"
+                            and w.get("scope") == e.get("scope") and w.get("target") == "refs/heads/" + e["target"]]
+            for w in matches:
+                pending.remove(w)
+                read.append(w)
+    return pending, read
+
+
 def on_post_tool(v, failed=False):
     tool = v.data.get("tool_name", "")
     inp = v.data.get("tool_input", {}) or {}
     if tool == "Bash":
         cmd = str(inp.get("command", ""))
+        resp = v.data.get("tool_response", {}) or {}
+        interrupted = isinstance(resp, dict) and resp.get("interrupted")
+        output = str(resp.get("stdout", "")) if isinstance(resp, dict) else ""
+        remote = remote_commands(cmd, v.root, v.data.get("cwd"), output) if v.enabled else []
+        for r in remote:
+            v.log(ev="remote", **r, ok=not failed and not interrupted and r["trusted"] and not inp.get("run_in_background"))
+        if any(r["action"] == "write" for r in remote) and not failed:
+            work_guidance(v)
         if v.enabled and MUTATES.search(cmd):
             v.log(ev="mutate", cmd=cmd[:300])
         found = checks_in(cmd, v.root, v.data.get("cwd"))
         if not found or not v.enabled or inp.get("run_in_background"):
             return
-        resp = v.data.get("tool_response", {}) or {}
         if failed:
             if v.data.get("is_interrupt"):
                 return
@@ -1344,6 +1605,8 @@ def on_post_tool(v, failed=False):
     rc, out, err = check_syntax(path, v.root)
     if rc and rc not in (124, 127):
         emit({"decision": "block", "reason": f"Syntax check failed for {path}:\n{(err or out)[:4000]}"})
+    elif v.enabled and inside(path, v.root) and proof(v):
+        work_guidance(v)
 
 
 def supersedes(newer, older):
@@ -1395,7 +1658,44 @@ def proof(v, files=None):
         else:
             passed = [x for x in passed if not supersedes(r, x)]
             failed.append(r)
-    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear}
+    uncovered = [rel for rel in files if not any(covers(r, rel, v.root) for r in passed)]
+    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear, "uncovered": uncovered}
+
+
+def covers(check, rel, root):
+    """Conservative evidence scope, not a claim about semantic test coverage."""
+    cwd = check.get("cwd", str(root))
+    target = Path(root) / rel
+    if rel == SHELL_CHANGES or not inside(target, cwd):
+        return False
+    kind = check.get("kind")
+    pos = check.get("pos", [])
+    if kind != "run":
+        # A filtered run cannot stand in for all changed files.
+        if any(a.split("=", 1)[0] in NARROWING for a in pos):
+            return False
+        paths = [Path(cwd) / a for a in pos if (Path(cwd) / a).exists()]
+        return not paths or any(inside(target, p) if p.is_dir() else target.resolve() == p.resolve() for p in paths)
+    if target.resolve() in [(Path(cwd) / a).resolve() for a in pos]:
+        return True
+    # Only explicit imports of this changed file count for inline execution.
+    for source in pos:
+        imports = re.findall(r"(?:^|[;\s(])(?:from|import)\s+([A-Za-z_][\w.]*)", source)
+        imports += re.findall(r"(?:require\(|import\(|from\s+)['\"](\.{1,2}/[^'\"]+)['\"]", source)
+        for name in imports:
+            base = Path(cwd) / (name.replace(".", "/") if "/" not in name else name)
+            candidates = [base, base / "__init__.py"] + [Path(str(base) + ext) for ext in (".py", ".js", ".mjs", ".cjs", ".ts")]
+            if target.resolve() in [p.resolve() for p in candidates]:
+                return True
+    return False
+
+
+def check_label(check, lang):
+    labels = {"test": ("tests passed", "시험 통과"), "build": ("build passed", "빌드 통과"),
+              "run": ("program ran", "프로그램 실행"), "lint": ("lint passed", "문법 검사 통과"),
+              "type": ("types passed", "자료형 검사 통과")}
+    label = labels.get(check.get("kind"), ("check passed", "검사 통과"))[lang == "ko"]
+    return label + ": " + short(check["cmd"])
 
 
 def short(cmd):
@@ -1438,12 +1738,8 @@ HOW_TO_SEE = re.compile(r"https?://|localhost|`[^`]+`|확인|열어|실행|눌�
 
 
 def stop_id(d):
-    try:
-        size = os.stat(str(d.get("transcript_path") or "")).st_size
-    except OSError:
-        size = -1
     raw = json.dumps([d.get("session_id"), d.get("prompt_id"), d.get("last_assistant_message"),
-                      bool(d.get("stop_hook_active")), size], ensure_ascii=False)
+                      bool(d.get("stop_hook_active"))], ensure_ascii=False)
     return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
@@ -1454,21 +1750,28 @@ def on_stop(v):
     sid = stop_id(d)
     waiting = bool(d.get("background_tasks"))
     p = proof(v)
+    pending, reread = remote_pending(v)
     overrides = list(dict.fromkeys(e.get("what", "") for e in v.turn() if e.get("ev") == "override"))
-    if not p:
+    if not p and not pending and not reread:
         v.state_update(stop={"id": sid, "decision": "nochange", "t": time.time()})
         if overrides:
             emit({"systemMessage": t("irreversible_only", v.lang, what=", ".join(overrides[:3]))})
         return
     reason = None
-    broken = ratchet(v, p) if p["passed"] and not p["failed"] and v.config["ratchet"] else None
+    broken = ratchet(v, p) if p and p["passed"] and not p["failed"] and v.config["ratchet"] else None
     # Block once per stop sequence. After that, or while background work runs, end honestly with the receipt.
-    if not d.get("stop_hook_active") and not waiting:
-        if p["failed"]:
+    blocked = any(e.get("ev") == "stop_block" for e in v.turn())
+    if not d.get("stop_hook_active") and not blocked and (not waiting or pending):
+        if pending:
+            reason = ("Re-read the remote result for the same target after your change (gh pr/issue view, gh run "
+                      "list/view, git ls-remote, curl the deployment URL, or npm view). Do not repeat the write. "
+                      "If it cannot be checked, say the remote result is not verified."
+                      if v.lang != "ko" else "원격 결과를 다시 읽어 확인하세요. 변경한 같은 대상을 조회하고, 변경 명령을 다시 실행하지 마세요. 확인할 수 없으면 원격 결과 확인 못 함이라고 알려주세요.")
+        elif p and p["failed"]:
             r = p["failed"][-1]
             reason = (f"The last check failed after your final change: `{r['cmd']}` (exit {r['exit']}). Fix the problem "
                       "and re-run it. If you cannot fix it, tell the user plainly that it still fails and why.")
-        elif not p["passed"]:
+        elif p and not p["passed"]:
             if p["unclear"]:
                 reason = (f"Your check `{p['unclear'][-1]['cmd']}` hid its real result: something after it (`;`, `||`, "
                           "or a pipe without `set -o pipefail`) decides the exit code. Re-run the check on its own.")
@@ -1483,28 +1786,39 @@ def on_stop(v):
             reason = (f"Regression: `{cmd}` passed earlier in this project and fails now.\n{out}\nFix what broke "
                       "it. If that check is obsolete, remove it with: python3 "
                       f"\"{Path(__file__).resolve()}\" checks forget \"{cmd}\"")
-        if not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
+        if p and not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
             reason = ("Before finishing, tell the user in plain words how they can see the result themselves: a URL "
                       "to open, a command to run, or where to click. They cannot read the code.")
     if reason:
         v.state_update(stop={"id": sid, "decision": "block", "t": time.time()})
+        v.stop_event("stop_block", reason="remote_readback" if pending else "local_proof")
         return emit({"decision": "block", "reason": reason})
-    p = proof(v, files=p["files"]) or p
-    lang, n = v.lang, len(p["files"])
+    p = (proof(v, files=p["files"]) or p) if p else None
+    lang, n = v.lang, len(p["files"]) if p else 0
     codex = t("codex_wait", lang) if not waiting and codex_ready(v) else ""
-    if p["failed"]:
+    if not p:
+        msg = "vibe " + ("⚠ " if pending else "✓ ") + t("remote_missing" if pending else "remote_ok", lang)
+    elif p["failed"]:
         msg = t("receipt_fail", lang, n=n, cmd=short(p["failed"][-1]["cmd"]), codex=codex)
     elif p["passed"]:
-        checks = ", ".join(dict.fromkeys(short(r["cmd"]) for r in p["passed"]))
+        checks = ", ".join(dict.fromkeys(check_label(r, lang) for r in p["passed"]))
         if p["unclear"]:
             msg = t("receipt_partial", lang, n=n, checks=checks, cmd=short(p["unclear"][-1]["cmd"]), codex=codex)
+        elif p["uncovered"]:
+            msg = t("receipt_scope", lang, n=n, checks=checks, files=", ".join(p["uncovered"][:5]), codex=codex)
         else:
             msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
     else:
         msg = t("receipt_none", lang, n=n, codex=codex)
     if overrides:
         msg += t("irreversible", lang, what=", ".join(overrides[:3]))
-    verified = p["passed"] and not p["failed"] and not p["unclear"]
+    if p and (pending or reread):
+        msg += " | " + t("remote_missing" if pending else "remote_ok", lang)
+        if pending:
+            msg = msg.replace("vibe ✓", "vibe ⚠", 1)
+    verified = not pending and (not p or (p["passed"] and not p["failed"] and not p["unclear"] and not p["uncovered"]))
+    v.stop_event("stop_pass" if verified else "stop_unverified", recovered=blocked,
+                 reason="remote_readback" if pending else "local_proof")
     v.state_update(stop={"id": sid, "decision": "allow" if verified else "unverified", "t": time.time()})
     emit({"systemMessage": msg})
 
@@ -1608,7 +1922,7 @@ KINDS = {"turn": "before request", "guard": "before risky command", "good": "che
 
 
 def cli(argv):
-    v = Vibe({"cwd": os.getcwd()})
+    v = Vibe({"cwd": os.getcwd(), "session_id": os.environ.get("CLAUDE_SESSION_ID", "cli")})
     cmd = argv[0] if argv else "status"
     if cmd == "undo":
         sub = argv[1] if len(argv) > 1 else "list"
@@ -1619,7 +1933,8 @@ def cli(argv):
                 print("No snapshots yet." if v.snapshots_on() else "Snapshots are off or unavailable here.")
                 return 0
             print("id          when          kind                   label  [difference from now]")
-            mine = v.load("state.json", {}).get("current_snap")
+            mine = v.load("state.json", {}).get("current_snap") or next(
+                (s["sha"] for s in snaps if s["kind"] == "turn"), None)
             for s in snaps:
                 _, stat, _ = v.git("diff", "--shortstat", s["sha"], current)
                 note = " (start of the current request)" if s["sha"] == mine else ""
@@ -1629,6 +1944,8 @@ def cli(argv):
         if sub in ("show", "restore") and len(argv) > 2:
             target = v.resolve(argv[2])
             if not target:
+                if sub == "restore":
+                    v.log(ev="undo", ok=False, reason="unknown_snapshot")
                 print("No such snapshot id. Run `undo list` and copy an id from the first column.", file=sys.stderr)
                 return 1
             if sub == "show":
@@ -1636,6 +1953,7 @@ def cli(argv):
                 print(v.git("diff", "--stat", target, current)[1] or "No differences.")
                 return 0
             ok, info = v.restore(target)
+            v.log(ev="undo", target=target, ok=ok)
             print(f"Restored. The files from just before this undo were saved as snapshot {info[:10]}; restore that id "
                   "to undo the undo." if ok else f"Not restored: {info}")
             return 0 if ok else 1
@@ -1691,8 +2009,14 @@ def cli(argv):
             print("\n".join(shlex.join(g["argv"]) for g in green if g.get("argv")) or "No remembered checks.")
         return 0
     if cmd == "status":
+        since = time.time() - 7 * 86400
+        counts = dict.fromkeys(("stop_block", "stop_pass", "stop_unverified", "undo"), 0)
+        for e in v.ledger():
+            if e.get("t", 0) >= since and e.get("ev") in counts:
+                counts[e["ev"]] += 1
         print(json.dumps({"version": VERSION, "project": str(v.root), "state": str(v.dir), "enabled": v.enabled,
                           "config": v.config, "codex": codex_ready(v), "snapshots": len(v.snapshots(1000)),
+                          "events_7d": counts,
                           "checks": [shlex.join(g["argv"]) for g in v.load("green.json", []) if g.get("argv")]},
                          indent=1, ensure_ascii=False))
         return 0

@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -805,12 +806,368 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.assertEqual(self.codex()[1].returncode, 0)
 
 
+class LedgerTests(Project):
+    def records(self):
+        with patch.dict(os.environ, self.env()):
+            v = vibe.Vibe({"session_id": self.sid, "prompt_id": self.pid})
+            return v, v.ledger()
+
+    def test_stop_block_recheck_pass_and_seven_day_counts(self):
+        self.hook("prompt", prompt="change")
+        self.edit("app.py")
+        self.stop()
+        self.ran("pytest")
+        self.stop(active=True)
+        v, records = self.records()
+        events = [e for e in records if e["ev"].startswith("stop_")]
+        self.assertEqual([e["ev"] for e in events], ["stop_block", "stop_pass"])
+        self.assertTrue(events[-1]["recovered"])
+        self.assertTrue(all(e["sid"] == self.sid and e["pid"] == self.pid for e in events))
+        self.assertEqual(json.loads(self.cli("status").stdout)["events_7d"],
+                         {"stop_block": 1, "stop_pass": 1, "stop_unverified": 0, "undo": 0})
+
+    def test_failed_and_unverified_endings_are_events(self):
+        for index, failed in enumerate((False, True)):
+            self.pid = "failure" + str(index)
+            self.hook("prompt", prompt="change")
+            self.edit("app.py", f"x = {index + 2}\n")
+            if failed:
+                self.ran("pytest", ok=False)
+            self.stop()
+            self.stop(active=True)
+        events = [e for e in self.records()[1] if e["ev"] == "stop_unverified"]
+        self.assertEqual(len(events), 2)
+
+    def test_duplicate_stop_does_not_double_count(self):
+        self.hook("prompt", prompt="change")
+        self.edit("app.py")
+        self.ran("pytest")
+        self.stop()
+        self.stop()
+        self.assertEqual(sum(e["ev"] == "stop_pass" for e in self.records()[1]), 1)
+
+    def test_rotation_preserves_records_and_counts_across_months(self):
+        v, _ = self.records()
+        old = {"ev": "stop_block", "sid": "old", "t": time.time() - 40 * 86400}
+        recent = {"ev": "stop_pass", "sid": "other", "t": time.time() - 86400}
+        path = v.dir / "ledger.jsonl"
+        path.write_text(json.dumps(old) + "\n" + json.dumps(recent) + "\n")
+        v.log(ev="padding", text="x" * 2_000_000)
+        self.assertEqual(path.read_text(), "")
+        old_month = time.strftime("%Y%m", time.localtime(old["t"]))
+        self.assertTrue((v.dir / f"ledger-{old_month}.jsonl").exists())
+        v.log(ev="stop_unverified")
+        # Rotate again into the same month. It must append, not overwrite.
+        v.log(ev="padding", text="y" * 2_000_000)
+        records = v.ledger()
+        self.assertEqual(len(records), 5)
+        self.assertIn(old, records)
+        counts = json.loads(self.cli("status").stdout)["events_7d"]
+        self.assertEqual(counts, {"stop_block": 0, "stop_pass": 1, "stop_unverified": 1, "undo": 0})
+
+    def test_turn_evidence_survives_rotation(self):
+        self.hook("prompt", prompt="change")
+        self.edit("app.py")
+        self.ran("pytest")
+        v, _ = self.records()
+        v.log(ev="padding", text="x" * 2_000_000)
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+    def test_override_and_undo_are_recorded(self):
+        self.write("app.py", "x = 1\n")
+        self.hook("prompt", prompt="change")
+        self.pre("Bash", command="git push --force")
+        self.pre("Bash", command="git push --force")
+        self.write("app.py", "x = 2\n")
+        result = self.cli("undo", "restore", self.snap_id("before request"))
+        self.assertEqual(result.returncode, 0)
+        records = self.records()[1]
+        self.assertEqual(sum(e["ev"] == "override" for e in records), 1)
+        undo = [e for e in records if e["ev"] == "undo"]
+        self.assertEqual(len(undo), 1)
+        self.assertTrue(undo[0]["ok"])
+        self.assertTrue(undo[0]["sid"])
+        self.assertEqual(json.loads(self.cli("status").stdout)["events_7d"]["undo"], 1)
+
+    def test_sessions_with_same_prompt_id_keep_separate_proof(self):
+        self.hook("prompt", prompt="first session")
+        self.edit("app.py")
+        self.stop()
+        self.sid = "s2"
+        self.hook("prompt", prompt="second session")
+        self.edit("other.py")
+        self.ran("pytest")
+        self.stop()
+        self.sid = "s1"
+        self.assertIn("NOT verified", self.stop(active=True)["systemMessage"])
+        counts = json.loads(self.cli("status").stdout)["events_7d"]
+        self.assertEqual(counts["stop_block"], 1)
+        self.assertEqual(counts["stop_pass"], 1)
+        self.assertEqual(counts["stop_unverified"], 1)
+
+    def test_parallel_writers_preserve_all_events(self):
+        script = ("import importlib.util,sys; "
+                  "s=importlib.util.spec_from_file_location('v',sys.argv[1]); "
+                  "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                  "v=m.Vibe({'session_id':sys.argv[2]}); "
+                  "[v.log(ev='stop_pass', payload='x'*250000) for _ in range(5)]")
+        procs = [subprocess.Popen([sys.executable, "-c", script, str(VIBE), str(i)],
+                                  env=self.env(), cwd=self.dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                 for i in range(3)]
+        for p in procs:
+            _, err = p.communicate(timeout=30)
+            self.assertEqual(p.returncode, 0, err)
+        records = self.records()[1]
+        self.assertEqual(len(records), 15)
+        self.assertEqual({e["sid"] for e in records}, {"0", "1", "2"})
+
+    def test_stop_identity_ignores_transcript_growth(self):
+        transcript = self.write("transcript.jsonl", "first\n")
+        data = dict(session_id="s1", last_assistant_message="done", stop_hook_active=False,
+                    transcript_path=transcript)
+        before = vibe.stop_id(data)
+        Path(transcript).write_text("longer transcript\n" * 20)
+        self.assertEqual(before, vibe.stop_id(data))
+        self.assertNotEqual(before, vibe.stop_id(dict(data, last_assistant_message="new result")))
+
+    def test_failed_undo_is_recorded_with_session_when_supplied(self):
+        env = self.env()
+        env["CLAUDE_SESSION_ID"] = "undo-session"
+        p = subprocess.run([sys.executable, str(VIBE), "undo", "restore", "bad-id"],
+                           env=env, cwd=self.dir, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1)
+        events = [e for e in self.records()[1] if e["ev"] == "undo"]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["sid"], "undo-session")
+        self.assertFalse(events[0]["ok"])
+
+    def test_truncated_legacy_line_does_not_swallow_new_event(self):
+        v, _ = self.records()
+        (v.dir / "ledger.jsonl").write_text('{"ev":"broken"')
+        v.log(ev="stop_pass")
+        records = v.ledger()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["ev"], "stop_pass")
+
+
+class ScopeTests(Project):
+    def setUp(self):
+        super().setUp()
+        self.hook("prompt", prompt="고쳐주세요")
+
+    def test_unrelated_project_script_is_only_partial_proof(self):
+        self.edit("app.py")
+        self.write("noop.py", "pass\n")
+        self.ran("python3 noop.py")
+        result = self.stop("실행 결과를 확인했어요.")
+        self.assertIn("부분 확인", result["systemMessage"])
+        self.assertNotIn("vibe ✓", result["systemMessage"])
+        self.assertIn("app.py", result["systemMessage"])
+
+    def test_run_of_one_changed_file_does_not_cover_another(self):
+        self.edit("app.py")
+        self.edit("helper.py")
+        self.ran("python3 app.py")
+        self.assertIn("부분 확인", self.stop(active=True)["systemMessage"])
+        self.ran("python3 helper.py")
+        self.assertIn("vibe ✓", self.stop(active=True)["systemMessage"])
+
+    def test_inline_import_of_another_module_is_partial(self):
+        self.edit("app.py")
+        self.write("noop.py", "pass\n")
+        self.ran('python3 -c "import noop"')
+        self.assertIn("부분 확인", self.stop()["systemMessage"])
+
+    def test_receipt_names_test_build_and_run_evidence(self):
+        self.edit("app.py")
+        self.ran("pytest")
+        self.ran("npm run build")
+        self.ran("python3 app.py")
+        message = self.stop()["systemMessage"]
+        for label in ("시험 통과", "빌드 통과", "프로그램 실행"):
+            self.assertIn(label, message)
+
+    def test_check_in_other_folder_is_partial(self):
+        self.edit("api/app.py")
+        self.ran("cd web && npm test")
+        self.assertIn("부분 확인", self.stop()["systemMessage"])
+
+    def test_korean_completion_with_evidence_has_no_language_nag(self):
+        self.edit("app.py")
+        self.ran("pytest")
+        self.assertNotIn("decision", self.stop("시험을 통과했고 `python3 app.py`로 보실 수 있어요."))
+
+    def test_idle_turns_stay_silent_but_unchecked_changes_block(self):
+        self.assertIsNone(self.hook("session-start", source="resume")[0])
+        self.assertIsNone(self.ran("git status --short"))
+        self.assertIsNone(self.stop("안녕하세요."))
+        self.edit("app.py")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_writing_unchanged_content_has_no_guidance_or_receipt(self):
+        self.write("app.py", "x = 1\n")
+        self.pid = "same-content"
+        self.hook("prompt", prompt="그대로 두기")
+        self.assertIsNone(self.edit("app.py", "x = 1\n"))
+        self.assertIsNone(self.stop())
+
+
+class RemoteTests(Project):
+    def setUp(self):
+        super().setUp()
+        self.hook("prompt", prompt="원격 작업")
+
+    def test_remote_create_blocks_once_then_reports_unverified(self):
+        self.ran("gh pr create -R org/repo --title fix --body ok", stdout="https://github.com/org/repo/pull/42\n")
+        self.assertIn("원격 결과를 다시 읽어", self.stop("완료했어요.")["reason"])
+        # Even missing stop_hook_active must not cause an endless loop.
+        out = self.stop("다시 확인할 수 없어요.")
+        self.assertNotIn("decision", out)
+        self.assertIn("원격 결과 확인 못 함", out["systemMessage"])
+
+    def test_same_target_after_write_is_verified(self):
+        self.ran("gh issue create -R org/repo --title fix --body ok", stdout="https://github.com/org/repo/issues/7\n")
+        self.ran("gh issue view 7 -R org/repo")
+        out = self.stop("완료했어요.")
+        self.assertIn("원격 결과 다시 읽음", out["systemMessage"])
+        self.assertNotIn("decision", out)
+
+    def test_other_target_repo_and_earlier_read_do_not_count(self):
+        self.ran("gh pr view 42 -R org/repo")
+        self.ran("gh pr merge 42 -R org/repo --squash")
+        self.ran("gh pr view 43 -R org/repo")
+        self.ran("gh pr view 42 -R org/other")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_failed_read_is_not_evidence_and_never_repeats_write(self):
+        self.ran("gh issue close 7 -R org/repo")
+        self.ran("gh issue view 7 -R org/repo", ok=False)
+        self.assertEqual(self.stop()["decision"], "block")
+        self.assertIn("원격 결과 확인 못 함", self.stop(active=True)["systemMessage"])
+        with patch.dict(os.environ, self.env()):
+            records = vibe.Vibe({"session_id": self.sid, "prompt_id": self.pid}).turn()
+        self.assertEqual(sum(e.get("action") == "write" for e in records), 1)
+
+    def test_unknown_created_identity_cannot_match_random_view(self):
+        self.ran("gh pr create -R org/repo --title 42 --body ok", stdout="created")
+        self.ran("gh pr view 42 -R org/repo")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_release_tag_re_read(self):
+        self.ran("gh release create v1.0 -R org/repo")
+        self.ran("gh release view v1.0 -R org/repo")
+        self.assertIn("원격 결과 다시 읽음", self.stop()["systemMessage"])
+
+    def test_git_push_requires_same_remote_and_branch(self):
+        self.ran("git push origin main")
+        self.ran("git ls-remote other refs/heads/main")
+        self.ran("git ls-remote origin refs/heads/dev")
+        self.assertEqual(self.stop()["decision"], "block")
+        self.ran("git ls-remote origin refs/heads/main")
+        self.assertIn("원격 결과 다시 읽음", self.stop(active=True)["systemMessage"])
+
+    def test_push_can_be_re_read_with_workflow_on_same_repo_branch(self):
+        self.ran("git push https://github.com/org/repo.git main")
+        self.ran("gh run list -R org/repo --branch main")
+        self.assertIn("원격 결과 다시 읽음", self.stop()["systemMessage"])
+
+    def test_deployment_requires_exact_url(self):
+        self.ran("vercel deploy --prod", stdout="Production: https://my-app.vercel.app\n")
+        self.ran("curl https://other-app.vercel.app")
+        self.assertEqual(self.stop()["decision"], "block")
+        self.ran("curl -f https://my-app.vercel.app")
+        self.assertIn("원격 결과 다시 읽음", self.stop(active=True)["systemMessage"])
+
+    def test_npm_publish_requires_same_package_version(self):
+        self.write("package.json", '{"name":"@org/pkg","version":"1.2.3"}')
+        self.ran("npm publish")
+        self.ran("npm view @org/pkg@1.2.2 version")
+        self.assertEqual(self.stop()["decision"], "block")
+        self.ran("npm view @org/pkg@1.2.3 version", stdout="1.2.3")
+        self.assertIn("원격 결과 다시 읽음", self.stop(active=True)["systemMessage"])
+
+    def test_local_check_does_not_verify_remote_write(self):
+        self.edit("app.py")
+        self.ran("gh pr merge 42 -R org/repo")
+        self.ran("pytest")
+        self.assertEqual(self.stop()["decision"], "block")
+        self.assertIn("원격 결과 확인 못 함", self.stop(active=True)["systemMessage"])
+
+    def test_email_send_and_commands_that_only_mention_remote_are_out_of_scope(self):
+        self.write("send_email.py", "pass\n")
+        self.pid = "email"
+        self.hook("prompt", prompt="이메일 보내기")
+        self.ran("python3 send_email.py")
+        self.ran("echo 'gh pr create'")
+        self.assertIsNone(self.stop())
+
+    def test_remote_read_before_a_second_write_does_not_cover_it(self):
+        self.ran("gh issue close 7 -R org/repo")
+        self.ran("gh issue view 7 -R org/repo")
+        self.ran("gh issue close 7 -R org/repo")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_remote_only_events_are_counted(self):
+        self.ran("gh issue close 7 -R org/repo")
+        self.stop()
+        self.ran("gh issue view 7 -R org/repo")
+        self.stop(active=True)
+        counts = json.loads(self.cli("status").stdout)["events_7d"]
+        self.assertEqual(counts["stop_block"], 1)
+        self.assertEqual(counts["stop_pass"], 1)
+
+    def test_help_dry_run_and_vercel_reads_are_idle(self):
+        for cmd in ("gh pr create --help", "git push --dry-run origin main", "npm publish --dry-run",
+                    "vercel --help", "vercel --version", "vercel ls", "vercel inspect example"):
+            self.assertIsNone(self.ran(cmd), cmd)
+        self.assertIsNone(self.stop())
+
+    def test_named_remotes_in_other_directories_do_not_match(self):
+        self.write("one/.keep", "")
+        self.write("two/.keep", "")
+        self.ran("cd one && git push origin main")
+        self.ran("cd two && git ls-remote origin main")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_list_remote_refs_reads_the_pushed_branch_from_output(self):
+        self.ran("git push origin main")
+        self.ran("git ls-remote origin", stdout="a" * 40 + "\trefs/heads/main\n")
+        self.assertIn("원격 결과 다시 읽음", self.stop()["systemMessage"])
+
+    def test_npm_view_version_output_identifies_the_published_version(self):
+        self.write("package.json", '{"name":"@org/pkg","version":"1.2.3"}')
+        self.pid = "publish-existing-package"
+        self.hook("prompt", prompt="패키지 올리기")
+        self.ran("npm publish")
+        self.ran("npm view @org/pkg version", stdout='"1.2.3"\n')
+        self.assertIn("원격 결과 다시 읽음", self.stop()["systemMessage"])
+
+    def test_hidden_or_background_read_does_not_count(self):
+        self.ran("gh issue close 7 -R org/repo")
+        self.ran("gh issue view 7 -R org/repo || true")
+        self.ran("gh issue view 7 -R org/repo &")
+        self.assertEqual(self.stop()["decision"], "block")
+
+    def test_readback_is_not_a_business_success_claim(self):
+        self.ran("gh pr merge 42 -R org/repo")
+        self.ran("gh pr view 42 -R org/repo --json state", stdout='{"state":"OPEN"}')
+        message = self.stop()["systemMessage"]
+        self.assertIn("원격 결과 다시 읽음", message)
+        self.assertNotIn("merge succeeded", message)
+        self.assertNotIn("완료", message)
+
+
 class SessionTests(Project):
-    def test_rules_are_injected_at_session_start(self):
-        out = self.hook("session-start", source="startup")[0]
+    def test_rules_wait_for_actual_work(self):
+        self.assertIsNone(self.hook("session-start", source="startup")[0])
+        self.assertIsNone(self.hook("prompt", prompt="hello")[0])
+        self.assertIsNone(self.stop("Hello!"))
+        out = self.edit("app.py")
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertIn("Prove it", ctx)
+        self.assertEqual(out["hookSpecificOutput"]["hookEventName"], "PostToolUse")
         self.assertLess(len(ctx), 1500)
+        self.assertIsNone(self.edit("app.py", "x = 2\n"))
 
     def test_internal_errors_fail_open(self):
         out, p = self.hook("stop", last_assistant_message=None, stop_hook_active="weird", background_tasks=None)
