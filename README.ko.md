@@ -53,10 +53,10 @@ Claude Code에 아래 두 줄을 붙여 넣으세요.
 /plugin install vibe-claude@vibe-claude
 ```
 
-Claude Code만 있으면 돼요. Codex는 없어도 괜찮아요.
+Claude Code와 `python3`, `git`이 있어야 해요. Codex는 없어도 괜찮아요.
 
 <p align="center">
-  <img src="assets/demo-ko.gif" alt="테스트를 통과할 때까지 Claude가 다시 시험하고, 지운 파일이 되돌아오고, 다른 AI가 검토하는 모습" width="100%">
+  <img src="assets/demo-ko.gif" alt="테스트가 실패하면 Claude가 한 번 다시 시험하고, 지운 파일이 되돌아오고, 다른 AI가 검토하는 모습" width="100%">
 </p>
 
 ## 이렇게 보여요

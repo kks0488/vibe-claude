@@ -53,10 +53,10 @@ Paste these two lines into Claude Code:
 /plugin install vibe-claude@vibe-claude
 ```
 
-Only Claude Code is required. Codex is optional.
+Claude Code, `python3`, and `git` are required. Codex is optional.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Claude is sent back until tests pass, deleted files come back with undo, a second AI reviews the change" width="100%">
+  <img src="assets/demo.gif" alt="Claude is sent back once to retry when a test fails, deleted files come back with undo, a second AI reviews the change" width="100%">
 </p>
 
 ## What you'll see
