@@ -180,5 +180,5 @@ Claude Code에는 이미 계획 모드, 메모리, 서브에이전트, `/rewind`
   <a href="https://github.com/kks0488/vibe-claude/releases"><img src="https://img.shields.io/github/v/release/kks0488/vibe-claude?color=d97757&label=release" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT license"></a>
   <br>
-  <a href="CHANGELOG.md">변경 기록</a> / <a href="docs/HISTORY.md">개발 이야기</a> / MIT © Kyoungsoo Kim and contributors
+  <a href="CHANGELOG.md">변경 기록</a> / <a href="docs/HISTORY.md">개발 이야기</a> / <a href="PRIVACY.md">개인정보</a> / MIT © Kyoungsoo Kim and contributors
 </p>

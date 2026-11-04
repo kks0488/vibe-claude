@@ -182,5 +182,5 @@ Claude Code already has plan mode, memory, subagents, `/rewind`, `/code-review` 
   <a href="https://github.com/kks0488/vibe-claude/releases"><img src="https://img.shields.io/github/v/release/kks0488/vibe-claude?color=d97757&label=release" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT license"></a>
   <br>
-  <a href="CHANGELOG.md">Changelog</a> / <a href="docs/HISTORY.md">History</a> / MIT © Kyoungsoo Kim and contributors
+  <a href="CHANGELOG.md">Changelog</a> / <a href="docs/HISTORY.md">History</a> / <a href="PRIVACY.md">Privacy</a> / MIT © Kyoungsoo Kim and contributors
 </p>
