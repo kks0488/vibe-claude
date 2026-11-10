@@ -23,7 +23,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-VERSION = "6.1.0"
+VERSION = "6.1.1"
 LEDGER_MAX = 2_000_000
 DEFAULTS = {"codex": "auto", "ratchet": True, "snapshots": True, "packages": True, "lang": None, "safe_to_delete": []}
 DOC_EXT = {"md", "mdx", "txt", "rst", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "pdf", "csv", "lock",
@@ -544,7 +544,28 @@ def unwrap(toks):
                     toks.pop(0)
         elif name in ("pnpm", "yarn") and len(toks) > 1 and toks[1] in ("dlx", "exec"):
             toks = toks[2:]
-        elif name in ("uv", "poetry", "pipenv", "pdm", "hatch", "rye") and len(toks) > 1 and toks[1] == "run":
+        elif name == "uv" and len(toks) > 1 and toks[1] == "run":
+            toks = toks[2:]
+            values = {"--python", "-p", "--with", "-w", "--with-editable", "--with-requirements",
+                      "--extra", "--group", "--no-group"}
+            flags = {"--no-project", "--isolated", "--no-sync", "--locked", "--frozen", "--offline",
+                     "--no-dev", "--all-extras", "--all-groups", "--no-default-groups", "--active"}
+            while toks and toks[0].startswith("-"):
+                opt = toks.pop(0)
+                if opt == "--":
+                    break
+                key, sep, value = opt.partition("=")
+                if key in values:
+                    if sep:
+                        if not value:
+                            return []
+                    elif toks and not toks[0].startswith("-"):
+                        toks.pop(0)
+                    else:
+                        return []
+                elif opt not in flags:
+                    return []  # unknown options must not turn their values into a verifier
+        elif name in ("poetry", "pipenv", "pdm", "hatch", "rye") and len(toks) > 1 and toks[1] == "run":
             toks = toks[2:]
             while toks and toks[0].startswith("-"):
                 toks.pop(0)
@@ -1363,6 +1384,97 @@ MUTATES = re.compile(r"(^|[;&|(]\s*|\b(sudo|env|xargs)\s+)(rm|rmdir|unlink|mv|cp
                      r"|\b(npx|pnpm|yarn|npm)\s+.*\b(codemod|prettier\s+--write|eslint\s+--fix)|--fix\b|--write\b")
 
 
+def shell_targets(cmd, root, base=None):
+    """Literal write targets, plus uncertainty. A folder diff alone never proves authorship."""
+    root = Path(root)
+    cwd = Path(base or root)
+    paths, unknown = set(), False
+
+    def add(value):
+        nonlocal unknown
+        if not value or re.search(r"[$`*?\[\]{}~]|://|^[^/]+:", value):
+            unknown = True
+            return
+        target = cwd / value if cwd is not None else None
+        if target is None or not inside(target, root):
+            unknown = True
+        elif target.is_dir():
+            unknown = True  # a directory operand does not identify which files this command wrote
+        else:
+            paths.add(os.path.relpath(os.path.realpath(target), root))
+
+    # Keep redirects here; segments() deliberately drops them when looking for checks.
+    lex = shlex.shlex(strip_heredocs(cmd).replace("\n", " ; "), posix=True, punctuation_chars=";&|<>()")
+    lex.whitespace_split = True
+    try:
+        tokens = list(lex)
+    except ValueError:
+        return [], True
+    chunks, chunk = [], []
+    for token in tokens + [";"]:
+        if token in OPERATORS or token in ("(", ")", "{", "}"):
+            if chunk:
+                chunks.append(chunk)
+            chunk = []
+        else:
+            chunk.append(token)
+    for chunk in chunks:
+        args, redirected, i = [], False, 0
+        while i < len(chunk):
+            token = chunk[i]
+            if REDIRECTS.match(token):
+                if args and args[-1].isdigit():
+                    args.pop()
+                target = chunk[i + 1] if i + 1 < len(chunk) else ""
+                if token in (">", ">>", ">|", "&>", "&>>") and target != "/dev/null":
+                    add(target)
+                    redirected = True
+                elif ">" in token and not (token == ">&" and target.isdigit()):
+                    unknown = True
+                i += 2
+            else:
+                args.append(token)
+                i += 1
+        args = unwrap(args)
+        if not args:
+            continue
+        prog, rest = os.path.basename(args[0]), args[1:]
+        if prog == "cd":
+            dest = rest[0] if len(rest) == 1 else ""
+            cwd = (cwd / dest).resolve() if cwd is not None and dest and not re.search(r"[$`*?~]", dest) else None
+            continue
+        mutates = bool(MUTATES.search(shlex.join(args)))
+        if prog in ("tee", "rm", "rmdir", "unlink"):
+            for target in rest:
+                if not target.startswith("-"):
+                    add(target)
+        elif prog in ("cp", "mv", "ln") and len(rest) >= 2 and not any(a.startswith("--target") or a == "-t" for a in rest):
+            operands = [a for a in rest if not a.startswith("-")]
+            if len(operands) < 2:
+                unknown = True
+                continue
+            dest = operands[-1]
+            if cwd is not None and (cwd / dest).is_dir():
+                for source in operands[:-1]:
+                    add(str(Path(dest) / Path(source).name))
+            else:
+                add(dest)
+            if prog == "mv":
+                for source in operands[:-1]:
+                    add(source)
+        elif prog in ("sed", "perl") and rest and re.fullmatch(r"-\w*i(?:\..*)?", rest[0]):
+            # The first operand is the expression, not a filename; unfamiliar forms stay uncertain.
+            script = 2 if len(rest) > 1 and rest[1] == "" else 1
+            if len(rest) > script + 1 and not rest[script].startswith("-"):
+                for target in rest[script + 1:]:
+                    add(target)
+            else:
+                unknown = True
+        elif mutates or redirected and prog not in ("cat", "printf", "echo", "pwd", "ls"):
+            unknown = True
+    return sorted(paths), unknown
+
+
 def in_project(check, root):
     """The check ran in this project and does not point at files outside it."""
     if not inside(check["cwd"], root):
@@ -1551,6 +1663,18 @@ def remote_pending(v):
     return pending, read
 
 
+def file_digest(root, rel):
+    path = Path(root) / rel
+    try:
+        if not inside(path, root) or path.stat().st_size > MAX_FILE:
+            return None
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return None
+
+
 def on_post_tool(v, failed=False):
     tool = v.data.get("tool_name", "")
     inp = v.data.get("tool_input", {}) or {}
@@ -1564,8 +1688,11 @@ def on_post_tool(v, failed=False):
             v.log(ev="remote", **r, ok=not failed and not interrupted and r["trusted"] and not inp.get("run_in_background"))
         if any(r["action"] == "write" for r in remote) and not failed:
             work_guidance(v)
-        if v.enabled and MUTATES.search(cmd):
-            v.log(ev="mutate", cmd=cmd[:300])
+        if v.enabled:
+            paths, uncertain = shell_targets(cmd, v.root, v.data.get("cwd"))
+            if paths or uncertain:
+                v.log(ev="mutate", cmd=cmd[:300], paths=paths, uncertain=uncertain,
+                      digests={p: file_digest(v.root, p) for p in paths})
         found = checks_in(cmd, v.root, v.data.get("cwd"))
         if not found or not v.enabled or inp.get("run_in_background"):
             return
@@ -1601,7 +1728,8 @@ def on_post_tool(v, failed=False):
     if not path or not os.path.isfile(path):
         return
     if v.enabled and inside(path, v.root):
-        v.log(ev="edit", path=os.path.relpath(os.path.realpath(path), v.root), code=is_code(path))
+        rel = os.path.relpath(os.path.realpath(path), v.root)
+        v.log(ev="edit", path=rel, code=is_code(path), digests={rel: file_digest(v.root, rel)})
     rc, out, err = check_syntax(path, v.root)
     if rc and rc not in (124, 127):
         emit({"decision": "block", "reason": f"Syntax check failed for {path}:\n{(err or out)[:4000]}"})
@@ -1618,33 +1746,71 @@ def supersedes(newer, older):
 SHELL_CHANGES = "(files changed by shell commands)"
 
 
+def session_changes(v, diff=None):
+    """Paths identified by this session's tools, and changes whose author cannot be established."""
+    turn = v.turn()
+    info = v.load("state.json", {}).get("turns", {}).get(v.pid or v.sid, {})
+    touched, digests, unknown = {}, {}, []
+
+    def targets(e):
+        if e.get("ev") == "edit":
+            return [e["path"]], False
+        if e.get("ev") == "mutate":
+            if "paths" in e:
+                return e["paths"], e.get("uncertain", False)
+            return shell_targets(e.get("cmd", ""), v.root)
+        return [], False
+
+    for e in turn:
+        paths, uncertain = targets(e)
+        for path in paths:
+            touched[path] = max(touched.get(path, 0), e["t"])
+            if path in e.get("digests", {}):
+                digests[path] = e["digests"][path]
+        if uncertain:
+            unknown.append(SHELL_CHANGES)
+    changed = {path for _, path in diff} if diff is not None else None
+    own = set(touched) if changed is None else set(touched) & changed
+    if changed is not None:
+        unknown.extend(sorted(changed - set(touched)))
+    # Even an explicit target can be shared by two sessions. Keep requiring checks for our edit,
+    # but don't claim the whole file was verified or pass that mixed diff to the reviewer.
+    shared = {path for path in own if path in digests
+              and (digests[path] is None or file_digest(v.root, path) != digests[path])}
+    for e in v.ledger():
+        if e.get("sid") == v.sid or e.get("t", 0) < info.get("t", 0):
+            continue
+        paths, _ = targets(e)
+        shared.update(own & set(paths))
+    unknown.extend(sorted(shared))
+    return {"files": sorted(own), "times": touched, "shared": shared,
+            "uncertain": sorted(set(unknown))}
+
+
 def proof(v, files=None):
     """What changed in this request, and the evidence gathered after the last change."""
     turn = v.turn()
     st = v.load("state.json", {})
     info = st.get("turns", {}).get(v.pid or v.sid, {})
-    edits = {e["path"]: e["t"] for e in turn if e.get("ev") == "edit"}
-    mutations = [e["t"] for e in turn if e.get("ev") == "mutate"]
-    if files is None and info.get("snap"):
+    diff = None
+    if info.get("snap"):
         now = v.snapshot("check", "end of request")
         diff = v.changed(info["snap"], now) if now else None
-        if diff is not None:
-            files = sorted(p for _, p in diff if is_code(p))
-    if files is None:  # snapshots unavailable: trust the edit tools, and assume shell edits changed something
-        files = sorted(p for p in edits if is_code(p)) + ([SHELL_CHANGES] if mutations else [])
-    if not files:
+    scope = session_changes(v, diff)
+    if files is None:
+        files = [p for p in scope["files"] if is_code(p)]
+    if not files and not scope["uncertain"]:
         return None
     # When was the code last touched? Edit-tool times, or file times for changes made by shell commands
     # (files written by a check finish before that check is logged, so they never count as "after" it).
     times = [info.get("t", 0)]
     for rel in files:
-        times.append(edits.get(rel, 0))
-        if rel not in edits:  # changed by a shell command, which may keep or fake the old file time (cp -p)
-            times.extend(mutations[-1:])
-        try:
-            times.append(min((v.root / rel).stat().st_mtime, time.time()))
-        except OSError:
-            pass
+        times.append(scope["times"].get(rel, 0))
+        if rel not in scope["shared"]:
+            try:
+                times.append(min((v.root / rel).stat().st_mtime, time.time()))
+            except OSError:
+                pass
     last_change = max(times)
     runs = sorted((e for e in turn if e.get("ev") == "run" and e["t"] >= last_change), key=lambda e: e["t"])
     passed, failed, unclear = [], [], []
@@ -1659,7 +1825,8 @@ def proof(v, files=None):
             passed = [x for x in passed if not supersedes(r, x)]
             failed.append(r)
     uncovered = [rel for rel in files if not any(covers(r, rel, v.root) for r in passed)]
-    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear, "uncovered": uncovered}
+    return {"files": files, "passed": passed, "failed": failed, "unclear": unclear, "uncovered": uncovered,
+            "uncertain": scope["uncertain"]}
 
 
 def covers(check, rel, root):
@@ -1771,7 +1938,7 @@ def on_stop(v):
             r = p["failed"][-1]
             reason = (f"The last check failed after your final change: `{r['cmd']}` (exit {r['exit']}). Fix the problem "
                       "and re-run it. If you cannot fix it, tell the user plainly that it still fails and why.")
-        elif p and not p["passed"]:
+        elif p and p["files"] and not p["passed"]:
             if p["unclear"]:
                 reason = (f"Your check `{p['unclear'][-1]['cmd']}` hid its real result: something after it (`;`, `||`, "
                           "or a pipe without `set -o pipefail`) decides the exit code. Re-run the check on its own.")
@@ -1786,7 +1953,7 @@ def on_stop(v):
             reason = (f"Regression: `{cmd}` passed earlier in this project and fails now.\n{out}\nFix what broke "
                       "it. If that check is obsolete, remove it with: python3 "
                       f"\"{Path(__file__).resolve()}\" checks forget \"{cmd}\"")
-        if p and not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
+        if p and p["files"] and not reason and not HOW_TO_SEE.search(str(d.get("last_assistant_message") or "")):
             reason = ("Before finishing, tell the user in plain words how they can see the result themselves: a URL "
                       "to open, a command to run, or where to click. They cannot read the code.")
     if reason:
@@ -1795,9 +1962,11 @@ def on_stop(v):
         return emit({"decision": "block", "reason": reason})
     p = (proof(v, files=p["files"]) or p) if p else None
     lang, n = v.lang, len(p["files"]) if p else 0
-    codex = t("codex_wait", lang) if not waiting and codex_ready(v) else ""
+    codex = t("codex_wait", lang) if p and p["files"] and not waiting and codex_ready(v) else ""
     if not p:
         msg = "vibe " + ("⚠ " if pending else "✓ ") + t("remote_missing" if pending else "remote_ok", lang)
+    elif not p["files"] and not p["failed"]:
+        msg = "vibe ⚠"
     elif p["failed"]:
         msg = t("receipt_fail", lang, n=n, cmd=short(p["failed"][-1]["cmd"]), codex=codex)
     elif p["passed"]:
@@ -1810,13 +1979,17 @@ def on_stop(v):
             msg = t("receipt_ok", lang, n=n, checks=checks, codex=codex)
     else:
         msg = t("receipt_none", lang, n=n, codex=codex)
+    if p and p["uncertain"]:
+        label = "changes outside confirmed session scope NOT verified" if lang != "ko" else "작성자를 확인 못 한 변경은 확인 못 함"
+        msg = msg.replace("vibe ✓", "vibe ⚠", 1) + " / " + label + ": " + ", ".join(p["uncertain"][:5])
     if overrides:
         msg += t("irreversible", lang, what=", ".join(overrides[:3]))
     if p and (pending or reread):
         msg += " | " + t("remote_missing" if pending else "remote_ok", lang)
         if pending:
             msg = msg.replace("vibe ✓", "vibe ⚠", 1)
-    verified = not pending and (not p or (p["passed"] and not p["failed"] and not p["unclear"] and not p["uncovered"]))
+    verified = not pending and (not p or (p["passed"] and not p["failed"] and not p["unclear"]
+                                         and not p["uncovered"] and not p["uncertain"]))
     v.stop_event("stop_pass" if verified else "stop_unverified", recovered=blocked,
                  reason="remote_readback" if pending else "local_proof")
     v.state_update(stop={"id": sid, "decision": "allow" if verified else "unverified", "t": time.time()})
@@ -1868,7 +2041,8 @@ def on_codex(v):
     if not before or not after:
         return 0
     names = v.changed(before, after) or []
-    paths = [rel for _, rel in names if not SECRET_FILES.search(rel)][:400]
+    scope = session_changes(v, names)
+    paths = [rel for rel in scope["files"] if rel not in scope["shared"] and not SECRET_FILES.search(rel)][:400]
     rc, keyed, _ = v.git("grep", "-l", "-z", "-E", "BEGIN [A-Z0-9 ]*PRIVATE KEY", after, "--", *paths) if paths else (1, "", "")
     if rc not in (0, 1):
         return 0  # could not scan for keys: send nothing

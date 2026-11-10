@@ -1,5 +1,11 @@
 # Changelog
 
+## v6.1.1 — 2026-11-10
+
+- Recognize pytest behind `uv run` options without trusting hidden exit results.
+- Keep other sessions' changes out of your check requirements and review.
+- Skip code tests for document-only shell writes; mark unknown changes as unverified.
+
 ## v6.1.0 — 2026-11-04
 
 - Log Stop blocks, passes, unverified endings, overrides, and undo results with session IDs. Archive logs over 2 MB by month without deleting old records. `vibe.py status` counts the last seven days, including archives.

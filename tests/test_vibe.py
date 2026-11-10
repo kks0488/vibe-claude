@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -54,14 +55,18 @@ class Project(unittest.TestCase):
         return subprocess.run([sys.executable, str(VIBE), *args], capture_output=True, text=True,
                               env=self.env(), cwd=self.dir, timeout=60)
 
-    def write(self, rel, text):
+    def write(self, rel, text, shell=True):
         path = self.dir / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
+        if shell:
+            # These writes stand in for this session's shell commands. Feed the same hook evidence
+            # as a real Bash tool; a bare folder difference could belong to another session.
+            self.ran("cat > " + shlex.quote(str(path)))
         return str(path)
 
     def edit(self, rel, text="x = 1\n"):
-        path = self.write(rel, text)
+        path = self.write(rel, text, shell=False)
         return self.hook("post-tool", tool_name="Write", tool_input={"file_path": path, "content": text})[0]
 
     def ran(self, cmd, ok=True, stdout=""):
@@ -369,6 +374,191 @@ class ProofTests(Project):
         self.ran("pytest")
         self.stop()
         self.assertEqual(sorted(p.name for p in self.dir.iterdir()), ["app.py"])
+
+
+class UvProofTests(Project):
+    def setUp(self):
+        super().setUp()
+        self.hook("prompt", prompt="Check the change")
+
+    def test_uv_value_options_find_the_actual_pytest(self):
+        for options in ("--no-project --python /usr/bin/python3 --with 'pytest<9'",
+                        "--python=/usr/bin/python3 --with=pytest --with 'pytest-cov'",
+                        "-p /usr/bin/python3 -w pytest --with pytest-cov", "--"):
+            cmd = "uv run " + options + " python -m pytest -q"
+            checks = vibe.checks_in(cmd, self.dir, self.dir)
+            self.assertEqual(len(checks), 1, cmd)
+            self.assertEqual(checks[0]["kind"], "test")
+            self.assertTrue(checks[0]["trusted"])
+
+    def test_uv_unknown_or_missing_options_are_not_proof(self):
+        for cmd in ("uv run --mystery pytest", "uv run --mystery=x pytest", "uv run --python",
+                    "uv run --python= pytest", "uv run --python --with pytest pytest",
+                    "uv run --directory elsewhere pytest", "uv run --package other pytest"):
+            self.assertEqual(vibe.checks_in(cmd, self.dir, self.dir), [], cmd)
+
+    def test_uv_actual_command_passes_at_stop(self):
+        self.edit("app.py")
+        self.ran("uv run --no-project --python /usr/bin/python3 --with 'pytest<9' python -m pytest -q")
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+    def test_uv_failed_pytest_still_blocks(self):
+        self.edit("app.py")
+        self.ran("uv run --python=python3 --with pytest --with pytest-cov python -m pytest", ok=False)
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_uv_pipe_without_pipefail_is_still_unclear(self):
+        self.edit("app.py")
+        self.ran("uv run --python python3 --with pytest python -m pytest | tail -3")
+        self.assertIn("hid its real result", self.stop()["reason"])
+
+    def test_uv_pipefail_preserves_exit_evidence(self):
+        self.edit("app.py")
+        self.ran("set -o pipefail; uv run --python python3 --with pytest python -m pytest | tail -3")
+        self.assertIn("vibe ✓", self.stop()["systemMessage"])
+
+
+class SessionChangeTests(Project):
+    def setUp(self):
+        super().setUp()
+        self.hook("prompt", prompt="Read the documentation")
+
+    def no_snapshots(self):
+        with patch.dict(os.environ, self.env()):
+            vibe.Vibe({"session_id": self.sid}).save("config.json", {"snapshots": False})
+        self.pid = "without-snapshot"
+        self.hook("prompt", prompt="Write a brief")
+
+    def foreign_edit(self, path="b.py"):
+        target = self.dir / path
+        target.write_text("x = 2\n")  # deliberately no own shell event
+        self.hook("post-tool", session_id="s2", tool_name="Write", tool_input={"file_path": str(target)})
+
+    def test_other_sessions_code_does_not_block_a_document_reader(self):
+        self.ran("cat README.md")
+        self.foreign_edit()
+        out = self.stop("Here is the documentation.")
+        self.assertNotIn("decision", out)
+        self.assertIn("NOT verified", out["systemMessage"])
+        self.assertIn("b.py", out["systemMessage"])
+        self.assertNotIn("vibe ✓", out["systemMessage"])
+
+    def test_unlogged_external_diff_is_not_assigned_to_this_session(self):
+        (self.dir / "b.py").write_text("x = 2\n")
+        out = self.stop()
+        self.assertNotIn("decision", out)
+        self.assertIn("b.py", out["systemMessage"])
+
+    def test_own_shell_target_still_requires_a_check(self):
+        self.write("a.py", "x = 1\n")
+        self.foreign_edit()
+        reason = self.stop()["reason"]
+        self.assertIn("a.py", reason)
+        self.assertNotIn("b.py", reason)
+        self.ran("pytest")
+        message = self.stop(active=True)["systemMessage"]
+        self.assertIn("1 file(s) changed", message)
+        self.assertIn("b.py", message)
+        self.assertNotIn("vibe ✓", message)
+
+    def test_concurrent_same_file_stays_unverified_after_a_check(self):
+        self.edit("a.py")
+        self.foreign_edit("a.py")
+        self.ran("pytest")
+        out = self.stop()
+        self.assertNotIn("decision", out)
+        self.assertIn("NOT verified", out["systemMessage"])
+        self.assertNotIn("vibe ✓", out["systemMessage"])
+
+    def test_bash_edit_diff_alone_does_not_prove_authorship(self):
+        (self.dir / "b.py").write_text("x = 2\n")
+        self.hook("post-tool", tool_name="Bash", tool_input={"command": "cat README.md"},
+                  tool_response={"bashEditDiff": [{"filePath": str(self.dir / "b.py")}], "stdout": ""})
+        self.assertNotIn("decision", self.stop())
+
+    def test_unlogged_overwrite_after_own_edit_is_unverified(self):
+        self.edit("a.py")
+        (self.dir / "a.py").write_text("x = 99\n")
+        self.ran("pytest")
+        message = self.stop()["systemMessage"]
+        self.assertIn("NOT verified", message)
+        self.assertNotIn("vibe ✓", message)
+
+    def test_external_edit_after_own_pass_does_not_require_another_test(self):
+        self.edit("a.py")
+        self.ran("pytest")
+        self.foreign_edit("a.py")
+        out = self.stop()
+        self.assertNotIn("decision", out)
+        self.assertIn("NOT verified", out["systemMessage"])
+        self.assertNotIn("vibe ✓", out["systemMessage"])
+
+    def test_no_snapshot_document_redirect_needs_no_code_test(self):
+        self.no_snapshots()
+        self.write("brief.md", "A short brief.\n")
+        self.assertIsNone(self.stop("Here is the brief."))
+
+    def test_no_snapshot_code_redirect_still_requires_a_check(self):
+        self.no_snapshots()
+        self.write("app.py", "x = 1\n")
+        self.assertIn("app.py", self.stop()["reason"])
+
+    def test_no_snapshot_edit_tool_still_requires_a_check(self):
+        self.no_snapshots()
+        self.edit("app.py")
+        self.assertIn("app.py", self.stop()["reason"])
+
+    def test_no_snapshot_variable_and_remote_targets_are_unverified(self):
+        self.no_snapshots()
+        for cmd in ('cat > "$OUTPUT"', "cp brief.md host:/tmp/brief.md"):
+            self.ran(cmd)
+        out = self.stop("Here is the result.")
+        self.assertNotIn("decision", out)
+        self.assertIn("NOT verified", out["systemMessage"])
+        self.assertNotIn("vibe ✓", out["systemMessage"])
+
+    def test_unknown_shell_target_does_not_hide_a_failed_check(self):
+        self.no_snapshots()
+        self.ran('cat > "$OUTPUT"')
+        self.ran("pytest", ok=False)
+        self.assertIn("failed", self.stop()["reason"])
+
+    def test_no_snapshot_document_plus_code_still_blocks(self):
+        self.no_snapshots()
+        self.ran("cat > brief.md && cat > app.py")
+        reason = self.stop()["reason"]
+        self.assertIn("app.py", reason)
+        self.assertNotIn("brief.md", reason)
+
+    def test_shell_literal_targets_follow_cwd_and_ignore_heredoc_body(self):
+        (self.dir / "src").mkdir()
+        paths, uncertain = vibe.shell_targets("cd src && cat > 'a b.py' <<'EOF'\ncat > fake.py\nEOF", self.dir)
+        self.assertEqual(paths, ["src/a b.py"])
+        self.assertFalse(uncertain)
+
+    def test_sed_and_copy_targets_are_checked_without_a_snapshot(self):
+        self.no_snapshots()
+        for cmd in ("sed -i 's/old/new/' app.py", "cp -p old.py app.py"):
+            paths, uncertain = vibe.shell_targets(cmd, self.dir)
+            self.assertEqual(paths, ["app.py"])
+            self.assertFalse(uncertain)
+        self.ran("sed -i 's/old/new/' app.py")
+        self.assertIn("app.py", self.stop()["reason"])
+
+    def test_macos_sed_document_write_does_not_invent_a_code_target(self):
+        self.no_snapshots()
+        for cmd in ("sed -i '' 's/old/new/' brief.md", "sed -i.bak 's/old/new/' brief.md"):
+            paths, uncertain = vibe.shell_targets(cmd, self.dir)
+            self.assertEqual(paths, ["brief.md"])
+            self.assertFalse(uncertain)
+            self.ran(cmd)
+        self.assertIsNone(self.stop())
+
+    def test_absolute_shell_program_and_leading_redirect_still_require_checks(self):
+        self.no_snapshots()
+        for cmd in ("/bin/cp old.py app.py", "> app.py"):
+            self.ran(cmd)
+        self.assertIn("app.py", self.stop()["reason"])
 
 
 class GuardTests(Project):
@@ -804,6 +994,39 @@ printf '%s\\n' {json.dumps(verdict)} > "$out"
         self.edit("app.py", "x = 2\n")
         self.assertEqual(self.stop()["decision"], "block")
         self.assertEqual(self.codex()[1].returncode, 0)
+
+    def test_review_excludes_other_sessions_files(self):
+        self.fake_codex("LGTM")
+        self.hook("prompt", prompt="Fix the total")
+        self.edit("app.py")
+        foreign = self.dir / "foreign.py"
+        foreign.write_text("foreign_marker = 99\n")
+        self.hook("post-tool", session_id="other", tool_name="Write", tool_input={"file_path": str(foreign)})
+        self.ran("pytest")
+        self.stop()
+        self.assertEqual(self.codex()[1].returncode, 0)
+        prompt = (self.bin / "prompt").read_text()
+        self.assertIn("app.py", prompt)
+        self.assertNotIn("foreign.py", prompt)
+        self.assertNotIn("foreign_marker", prompt)
+
+    def test_external_only_changes_do_not_start_a_review(self):
+        self.fake_codex("LGTM")
+        self.hook("prompt", prompt="Read the brief")
+        (self.dir / "foreign.py").write_text("foreign_marker = 99\n")
+        self.assertNotIn("Codex review running", self.stop()["systemMessage"])
+        self.assertEqual(self.codex()[1].returncode, 0)
+        self.assertFalse((self.bin / "prompt").exists())
+
+    def test_mixed_author_file_is_not_sent_to_review(self):
+        self.fake_codex("LGTM")
+        self.hook("prompt", prompt="Fix the total")
+        self.edit("app.py")
+        (self.dir / "app.py").write_text("foreign_marker = 99\n")
+        self.ran("pytest")
+        self.stop()
+        self.assertEqual(self.codex()[1].returncode, 0)
+        self.assertFalse((self.bin / "prompt").exists())
 
 
 class LedgerTests(Project):
