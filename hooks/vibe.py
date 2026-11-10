@@ -1799,8 +1799,6 @@ def proof(v, files=None):
     scope = session_changes(v, diff)
     if files is None:
         files = [p for p in scope["files"] if is_code(p)]
-    if not files and not scope["uncertain"]:
-        return None
     # When was the code last touched? Edit-tool times, or file times for changes made by shell commands
     # (files written by a check finish before that check is logged, so they never count as "after" it).
     times = [info.get("t", 0)]
@@ -1824,6 +1822,9 @@ def proof(v, files=None):
         else:
             passed = [x for x in passed if not supersedes(r, x)]
             failed.append(r)
+    # A failed check still matters when this turn changed only documents (or no files).
+    if not files and not scope["uncertain"] and not failed:
+        return None
     uncovered = [rel for rel in files if not any(covers(r, rel, v.root) for r in passed)]
     return {"files": files, "passed": passed, "failed": failed, "unclear": unclear, "uncovered": uncovered,
             "uncertain": scope["uncertain"]}

@@ -498,6 +498,29 @@ class SessionChangeTests(Project):
         self.write("brief.md", "A short brief.\n")
         self.assertIsNone(self.stop("Here is the brief."))
 
+    def test_no_snapshot_document_redirect_does_not_hide_a_failed_check(self):
+        self.no_snapshots()
+        self.write("brief.md", "A short brief.\n")
+        self.ran("pytest", ok=False)
+        out = self.stop("Here is the brief.")
+        self.assertIsNotNone(out)
+        self.assertEqual(out["decision"], "block")
+        self.assertIn("failed", out["reason"])
+        self.assertIn("pytest", out["reason"])
+
+    def test_no_snapshot_document_check_can_recover_after_failure(self):
+        self.no_snapshots()
+        self.write("brief.md", "A short brief.\n")
+        self.ran("pytest", ok=False)
+        self.ran("pytest")
+        self.assertIsNone(self.stop("Here is the brief."))
+
+    def test_no_snapshot_document_ignores_previous_turn_failure(self):
+        self.ran("pytest", ok=False)
+        self.no_snapshots()
+        self.write("brief.md", "A short brief.\n")
+        self.assertIsNone(self.stop("Here is the brief."))
+
     def test_no_snapshot_code_redirect_still_requires_a_check(self):
         self.no_snapshots()
         self.write("app.py", "x = 1\n")
